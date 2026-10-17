@@ -16,8 +16,33 @@
 
 > **注意：**GitHub Actions 显示构建成功，只能说明自动测试和固件编译通过；不能替代开发板、手柄和游戏的实际测试。第一次刷写前请确认板型与 USB 接口，刷写过程中不要断开连接。
 
+## 与上游网页刷写器 / 固件有什么区别？
+
+对照上游 [danzig666/stadia-dongle-esp](https://github.com/danzig666/stadia-dongle-esp) 的 `main` 分支检查过源码和 GitHub Actions。**刷写页面的工作方式基本相同，但实际下载并写入开发板的固件不是同一个二进制文件**：两个仓库分别从各自源码构建。
+
+| 项目 | 本仓库（WuLinLee） | 上游（danzig666） |
+|---|---|---|
+| 网页刷写技术 | ESP Web Tools 10 + `manifest.json` | 相同 |
+| 芯片 / 主刷写偏移 | ESP32-S3，完整镜像写入偏移 `0x0` | 相同 |
+| 刷写页 | 中文说明、下载完整 `.bin`、配置页和 Releases 入口 | 英文说明，主要提供 Install 按钮和配置页入口 |
+| 核心用途 | Stadia BLE → USB Xbox 360/XInput、双手柄和配置功能，并包含本仓库的改动 | 相同的基础架构和大部分既有功能 |
+| 震动转发 | 加入串行 BLE 写入、失败退避重试、最新震动目标优先，以及更完整的 8→16 位强度换算 | 上游自己的实现；不能把两边的行为假定为完全一致 |
+| Assistant / Capture | 本仓库额外增加短按 / 长按映射到 XInput 按钮的能力 | 已有可配置的额外按键动作，但没有本仓库新增的这组 XInput 动作 |
+| USB 配置与文档 | 中文 USB WebHID 配置页、协议合约测试和维护交接文档 | 原有 USB 配置 / WebHID 功能及上游文档 |
+
+### 一个需要下一个维护者特别检查的固件打包差异
+
+两边的 `partitions.csv` 都定义了位于 `0xf000` 的 `otadata` 分区，应用从 `0x20000` 开始。上游构建流程把 `build/ota_data_initial.bin` 一并合入 `firmware-merged.bin`，并另外生成、发布仅含应用程序的 `stadia-dongle-ota.bin`，供设备网页 OTA 更新使用。
+
+**当前本仓库的 workflow 还没有做这两步**：合并完整镜像时只合入 bootloader、分区表和应用；Actions Artifact / Release 也只上传 `firmware-merged.bin`。本仓库的设备端网页 OTA 处理代码使用 ESP-IDF OTA API 写入下一个应用分区，因此应继续核实它所需的应用镜像获取和 OTA 更新路径。不要把完整的 `firmware-merged.bin` 当成 OTA 应用文件直接上传。
+
+这并不自动证明在线 Install 刷写会失败：当前 manifest 明确刷写的是完整镜像（`offset: 0`），而不是 OTA 应用镜像。由于本仓库和上游分区表一致，**下一个 AI 应在修改打包流程前，先查看 `partitions.csv`、`main/web_server.c` OTA handler 和 workflow，补齐/验证 OTA 文件及 `otadata` 初始化，再用 CI 和实机冷启动、升级回滚路径验证**。当前差异需要明确跟踪，不要无依据地称两个构建产物完全等价。
+
+另外，上游 workflow 显式拉取完整 Git 历史用于固件版本标记；本仓库 workflow 目前使用默认浅克隆。维护者也应核实配置页显示的固件版本是否可靠。
+
 ## 目录
 
+- [与上游网页刷写器 / 固件有什么区别](#与上游网页刷写器--固件有什么区别)
 - [功能与实现情况](#功能与实现情况)
 - [开源参考与致谢](#参考了哪些开源项目复用了什么)
 - [自动构建与发布](#自动编译是怎么工作的)
@@ -124,7 +149,7 @@
 1. **触发：**推送到 `main` 或 `codex/**` 分支、创建 Pull Request，或推送以 `v` 开头的版本标签时触发。
 2. **自动测试：**执行 `npm test`，检查 USB 配置协议、固件与 JavaScript 动作编号的一致性及相关页面约定。
 3. **云端编译：**GitHub 的 Ubuntu 服务器使用 ESP-IDF 6.0、目标 `esp32s3` 执行 `idf.py build`。
-4. **生成完整镜像：**将 bootloader、分区表和应用镜像合并成 `firmware-merged.bin`。
+4. **生成完整镜像：**当前 workflow 将 bootloader、分区表和应用镜像合并成 `firmware-merged.bin`。注意：与上游相比，目前还没有把 `build/ota_data_initial.bin` 合入，也没有生成 `stadia-dongle-ota.bin`；详见[上游差异与待检查项](#与上游网页刷写器--固件有什么区别)。
 5. **保存结果：**上传名为 `firmware` 的 Actions Artifact，供开发者下载；Artifact 通常保留 7 天。
 6. **正式发布：**推送 `v*` 标签时，工作流会建立 GitHub Release 并附加固件文件。
 7. **网页更新：**`main` 分支或版本标签的 Pages 部署流程，会准备刷入页、USB 配置页和固件，再尝试更新 GitHub Pages。
@@ -214,7 +239,7 @@
 
 如果要继续修改固件、WebHID 协议、按键映射或发布流程，请先阅读 [`AI_HANDOFF.md`](AI_HANDOFF.md)。其中记录了模块职责、动作 ID 跨语言一致性、震动处理约束、CI / Pages 发布条件、常见故障和推荐的接手顺序。
 
-开始开发前，请重新确认 [PR #1](https://github.com/WuLinLee/stadia-dongle-esp-2/pull/1) 与 [最新 Actions 运行](https://github.com/WuLinLee/stadia-dongle-esp-2/actions/workflows/release.yml)。网页是否可用必须以成功的 Pages 部署和实际 URL 检查为准；自动测试或固件编译通过不代表网页已经上线，也不代表真机验证已通过。
+PR #1 已于 2026-10-17 合并到 `main`。开始开发前，请重新确认[最新 Actions 运行](https://github.com/WuLinLee/stadia-dongle-esp-2/actions/workflows/release.yml)及对应提交；不要把历史 PR 或旧的绿色运行当作当前状态。网页是否可用必须以成功的 Pages 部署和实际 URL 检查为准；自动测试或固件编译通过不代表网页已经上线，也不代表真机验证已通过。
 
 ## 开发者：本地构建（可选）
 
