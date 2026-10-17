@@ -17,8 +17,8 @@
 ## 仓库与当前工作状态
 
 - 仓库：<https://github.com/WuLinLee/stadia-dongle-esp-2>
-- 开发分支：`codex/rumble-write-reliability`
-- 当前主要 PR：[#1 — fix: improve Stadia rumble and add XInput button mapping](https://github.com/WuLinLee/stadia-dongle-esp-2/pull/1)
+- 主分支：`main`（PR #1 已于 2026-10-17 合并；合并提交 `f755823735f31b7625a358b5650860d992f3ba41`）。开发分支 `codex/rumble-write-reliability` 是历史工作分支，不要假设它仍是待合并状态。
+- 历史 PR：[#1 — fix: improve Stadia rumble and add XInput button mapping](https://github.com/WuLinLee/stadia-dongle-esp-2/pull/1)
 - CI 实时状态：<https://github.com/WuLinLee/stadia-dongle-esp-2/actions/workflows/release.yml>
 - 工作流：[`.github/workflows/release.yml`](.github/workflows/release.yml)
 
@@ -114,6 +114,33 @@
 - [ESP-IDF](https://github.com/espressif/esp-idf)：当前 CI 使用 ESP-IDF 6.0。
 - [espressif/esp-idf-ci-action](https://github.com/espressif/esp-idf-ci-action)：在 GitHub Actions 中构建。
 - [ESP Web Tools](https://github.com/esphome/esp-web-tools)：浏览器在线刷机按钮及 manifest 工作流。
+
+## 与上游固件的关键差异及待验证项
+
+比较对象是 [danzig666/stadia-dongle-esp 的 main](https://github.com/danzig666/stadia-dongle-esp)，不是 Scalee 上游仓库中的任意历史提交。在线刷入页面沿用相同的 ESP Web Tools + manifest 机制，manifest 把完整 `firmware-merged.bin` 以偏移 `0x0` 写入；但两个仓库的固件由各自源码构建，二进制不应视为同一文件。
+
+已确认的功能差异：
+- 本仓库改进了 BLE 震动输出路径：串行写入、失败退避重试、保护在途 payload，并优先处理最新目标；震动 8 位强度按 `n * 257` 扩展为 16 位。效果仍要真机验证。
+- 本仓库给 Assistant/Capture 加入短按 / 长按触发 XInput 虚拟按钮的选项。
+- 本仓库主要面向中文用户，补充 USB WebHID 协议合约测试与维护交接文档。
+- 原有双手柄、鼠标模式、Wi-Fi Web UI、USB 配置等能力不少是继承基础工程，不要把它们全都描述成本仓库新功能。
+
+### 必须验证的打包差异
+
+已对照两边当前 workflow 与 `partitions.csv`：
+- 两边分区表都有 `otadata` 分区 `0xf000`，应用偏移是 `0x20000`。
+- 上游在 `firmware-merged.bin` 中包含 `build/ota_data_initial.bin`，还会生成 `build/stadia-dongle-ota.bin`（从 `build/stadia-dongle.bin` 复制），并在 Artifact / Release 中一并发布。
+- 本仓库当前 workflow 合并完整镜像时没有包含 `0xf000 build/ota_data_initial.bin`，也没有产出 / 发布 `stadia-dongle-ota.bin`。
+- 本仓库 `main/web_server.c` OTA handler 调用 `esp_ota_get_next_update_partition()`、`esp_ota_begin()` 和 `esp_ota_write()`，所以应该单独验证网页 OTA 所需文件到底如何提供；不能把从偏移 0 开始的整合镜像当作应用 OTA 文件上传。
+
+下一个 AI 的检查顺序：
+1. 阅读 `partitions.csv`、`.github/workflows/release.yml`、`main/web_server.c` OTA handler 和设备端网页中 OTA 上传代码。
+2. 确认 `ota_data_initial.bin` 的合入方式，并确认是否应像上游一样生成并发布 app-only `stadia-dongle-ota.bin`。
+3. 给打包产物补合约检查，避免未来 workflow 不小心漏掉必需文件。
+4. 先让 Actions 测试 / 构建通过，然后做冷启动、正常 USB 刷写、网页 OTA 更新以及 OTA 失败恢复的实机检查。
+5. 检查当前 workflow 的浅克隆是否影响固件版本字符串；上游 workflow 用 `fetch-depth: 0` 取得完整 Git 历史。
+
+以上是经源码比对确认的差异和待验证项目，不是已验证的故障结论。不要只根据 Pages deployment 成功就宣称固件 OTA / 双分区升级路径正常。
 
 ## 验证方法
 
