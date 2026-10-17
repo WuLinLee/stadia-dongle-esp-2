@@ -32,7 +32,8 @@ test("Pages deployment is guarded once and remains testable on feature branches"
     1,
     "deploy-pages has one job-level condition",
   );
-  assert.match(deployHeader[0], /always\(\)/);
+  assert.doesNotMatch(deployHeader[0], /always\(\)/);
+  assert.match(deployHeader[0], /needs\.build-firmware\.result == 'success'/);
   assert.match(deployHeader[0], /refs\/heads\/main/);
   assert.match(deployHeader[0], /refs\/tags\//);
   assert.match(
