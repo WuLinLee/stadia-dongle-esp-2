@@ -17,12 +17,14 @@ Stadia 手柄 ←── Bluetooth LE ──→ ESP32-S3 ←── USB ──→ 
 - 将游戏的双马达震动转发到 Stadia 手柄
 - 将 Assistant 和 Capture 映射为独立键盘按键
 - 一键切换鼠标模式
-- 通过中文 Web GUI 配对、查看状态和修改配置
+- 通过中文 Web GUI 配对、查看状态和修改配置；Assistant / Capture 可映射到 XInput 手柄按钮
 - 通过 USB 配置，不会占用 Windows 当前的 Wi-Fi
 - 按需启动 Wi-Fi 热点，用于 OTA 和故障恢复
 - 保存配对记录和按键配置，断电后仍然保留
 
 Stadia 手柄没有扳机马达，因此本项目不提供 Xbox Series 手柄那种扳机震动。
+
+额外按键的动作可选键盘、媒体键，也可直接输出 XInput 手柄 A/B/X/Y、LB/RB、Start/Back、L3/R3、Guide、十字键和 LT/RT。手柄按钮动作会发出约 20 ms 的按下脉冲；LT/RT 会按全按强度输出，并与实际手柄输入叠加，不会清除真实按键状态。
 
 ## 需要什么
 

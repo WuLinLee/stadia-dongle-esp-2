@@ -124,7 +124,7 @@
 | 6 | 2 | Web UI 自动关闭时间，15–1800 秒 |
 | 8 | 1 | bit 0：USB 休眠时关闭 AP；bit 1：无绑定手柄时自动启动 Web UI |
 
-动作编号必须与 `dongle_action_t` 保持一致，自动合约测试会比较 C 与 JavaScript 两端的顺序。
+动作编号必须与 `dongle_action_t` 保持一致，自动合约测试会比较 C 与 JavaScript 两端的顺序。新增的 `gamepad_*` 动作会向对应 XInput 手柄报告叠加一个约 20 ms 的虚拟按钮按下脉冲；可选 A/B/X/Y、LB/RB、Start/Back、L3/R3、Guide、十字键和完整 LT/RT。叠加层不覆盖真实按键状态，断开或发出中立报告时会清空，以免留下卡键。
 
 ## 兼容性与限制
 

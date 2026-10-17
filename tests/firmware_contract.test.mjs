@@ -150,7 +150,7 @@ test("Wi-Fi AP is opt-in, temporary, and still recoverable", async () => {
   const store = await source("../main/config_store.c");
   const appMain = await source("../main/main.c");
   const webServer = await source("../main/web_server.c");
-  assert.match(store, /CFG_SCHEMA\s+5/);
+  assert.match(store, /CFG_SCHEMA\s+6/);
   assert.match(store, /capture_short_action\s*=\s*DONGLE_ACTION_KEY_F12/);
   assert.match(store, /webui_auto_start_if_no_bond\s*=\s*false/);
   assert.match(
@@ -177,8 +177,15 @@ test("F12 is appended compatibly and emits the standard keyboard usage", async (
     header,
     /DONGLE_ACTION_CONSUMER_SCAN_PREV,\s*DONGLE_ACTION_KEY_F12,/,
   );
-  assert.equal(ACTION_NAMES.at(-1), "f12");
+  assert.equal(ACTION_NAMES.indexOf("f12"), 37);
+  assert.equal(ACTION_NAMES.at(-1), "gamepad_rt");
+  assert.match(header, /DONGLE_ACTION_KEY_F12,\s*DONGLE_ACTION_GAMEPAD_A,/);
   assert.match(actions, /DONGLE_ACTION_KEY_F12:\s*return\s*0x45/);
+  const bridge = await source("../main/bridge.c");
+  const buttons = await source("../main/button_actions.c");
+  assert.match(buttons, /DONGLE_ACTION_GAMEPAD_A:\s*return BRIDGE_GAMEPAD_BUTTON_A/);
+  assert.match(bridge, /report\[3\] \|= 1u << 4/);
+  assert.match(bridge, /s_virtual_buttons\[gamepad_index\] = 0/);
 });
 
 test("controller polling preserves interactive nodes and gates capabilities", async () => {
