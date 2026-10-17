@@ -8,7 +8,7 @@
 Stadia 手柄 ←── Bluetooth LE ──→ ESP32-S3 ←── USB ──→ Windows
 ```
 
-本项目基于 [danzig666/stadia-dongle-esp](https://github.com/danzig666/stadia-dongle-esp)，其上游为 [Scalee/stadia-dongle](https://github.com/Scalee/stadia-dongle)。
+本项目 fork 自 [danzig666/stadia-dongle-esp](https://github.com/danzig666/stadia-dongle-esp)，其上游为 [Scalee/stadia-dongle](https://github.com/Scalee/stadia-dongle)。源码、独立刷入页与后续固件更新均由本仓库维护。
 
 ## 能做什么
 
@@ -43,7 +43,7 @@ Stadia 手柄没有扳机马达，因此本项目不提供 Xbox Series 手柄那
 ### 1. 刷入固件
 
 1. 用开发板的 **COM/UART** 接口连接电脑。
-2. 打开[在线安装器](https://jazz-zzzz.github.io/stadia-dongle-esp/)。
+2. 打开[在线安装器](https://wulinlee.github.io/stadia-dongle-esp-2/)。
 3. 点击 **Install**，选择开发板对应的 COM 口。
 4. 等待安装完成，然后断开 USB。
 5. 改用开发板的 **USB/OTG** 接口连接电脑。
@@ -54,7 +54,7 @@ Stadia 手柄没有扳机马达，因此本项目不提供 Xbox Series 手柄那
 
 ### 2. 连接配置页
 
-1. 打开[中文 USB 配置页](https://jazz-zzzz.github.io/stadia-dongle-esp/config.html)。
+1. 打开[中文 USB 配置页](https://wulinlee.github.io/stadia-dongle-esp-2/config.html)。
 2. 点击 **连接 USB**。
 3. 在浏览器设备列表中选择 Stadia 接收器。
 
@@ -101,7 +101,7 @@ F12 默认用于 Steam 截图。F14 和 F15 通常不会触发 Windows 系统功
 
 ## 震动
 
-游戏发送的 Xbox 360 大、小马达强度会直接映射到 Stadia 手柄的两个马达。默认是线性映射，不会故意削弱震动。
+游戏发送的 Xbox 360 大、小马达强度会映射到 Stadia 手柄的两个马达。每个 8 位强度值按 `n × 257` 扩展到 Stadia 所需的 16 位小端强度，覆盖完整的 0–65535 范围。BLE 写入串行等待完成，失败时退避重试，快速变化时只保留每个手柄最新的目标强度。
 
 BLE 输出写入会串行等待完成；若写入启动或完成失败，固件会退避重试，并在写入期间保留最新目标强度，避免一次失败永久丢失停止震动指令。具体游戏的震动节奏仍需在真实硬件上验证。
 
@@ -129,7 +129,7 @@ Steam 的控制器测试通常不会一直发送满强度，因此测试时可�
 
 ## Web GUI 与 Wi-Fi
 
-日常配置推荐使用[在线 USB 配置页](https://jazz-zzzz.github.io/stadia-dongle-esp/config.html)。它可以：
+日常配置推荐使用[在线 USB 配置页](https://wulinlee.github.io/stadia-dongle-esp-2/config.html)。它可以：
 
 - 配对、查看和删除手柄
 - 查看实时按键、摇杆、扳机和电量
@@ -165,7 +165,7 @@ py -m http.server 8765 --directory main
 
 修改按键或常规设置不需要重新烧录，保存后会写入 ESP32 的 NVS。
 
-需要升级固件时，最稳妥的方法是重新使用[在线安装器](https://jazz-zzzz.github.io/stadia-dongle-esp/)。直接覆盖即可，不需要先删除旧固件。完整刷写可能清除配对记录，因此升级后可能需要重新配对手柄。
+需要升级固件时，最稳妥的方法是重新使用[本项目在线安装器](https://wulinlee.github.io/stadia-dongle-esp-2/)，或从[本仓库 Releases](https://github.com/WuLinLee/stadia-dongle-esp-2/releases/latest)下载固件。直接覆盖即可，不需要先删除旧固件。完整刷写可能清除配对记录，因此升级后可能需要重新配对手柄。
 
 Wi-Fi 页面也提供 OTA，但当前 OTA 流程尚未完成充分真机验证。OTA 只能上传构建产生的应用镜像 `build/stadia-dongle.bin`，不要上传完整安装镜像 `firmware-merged.bin`。
 

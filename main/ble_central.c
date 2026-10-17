@@ -736,6 +736,7 @@ void ble_central_send_rumble(uint8_t gamepad_index, const uint8_t *payload, size
         memcpy(slot->rumble_payload, payload, DONGLE_RUMBLE_REPORT_SIZE);
         slot->rumble_payload_valid = true;
         slot->rumble_dirty = true;
+        slot->rumble_retry_count = 0;
     }
 
     /* Skip unchanged reports unless this target still needs to be delivered. */
@@ -836,6 +837,28 @@ static int gap_event_fn(struct ble_gap_event *event, void *arg)
         }
         break;
     }
+
+    case BLE_GAP_EVENT_CONN_UPDATE: {
+        struct ble_gap_conn_desc desc;
+        if (ble_gap_conn_find(event->conn_update.conn_handle, &desc) == 0) {
+            ESP_LOGI(TAG,
+                     "slot %u connection parameters updated status=%d interval=%u (%.2f ms) latency=%u timeout=%u ms",
+                     slot_by_conn(event->conn_update.conn_handle)
+                         ? slot_by_conn(event->conn_update.conn_handle)->slot_index : 255,
+                     event->conn_update.status, desc.conn_itvl,
+                     desc.conn_itvl * 1.25, desc.conn_latency,
+                     desc.supervision_timeout * 10);
+        }
+        break;
+    }
+
+    case BLE_GAP_EVENT_L2CAP_UPDATE_REQ:
+        ESP_LOGI(TAG, "Peer requests BLE connection parameters: min=%u max=%u latency=%u timeout=%u",
+                 event->conn_update_req.peer_params->itvl_min,
+                 event->conn_update_req.peer_params->itvl_max,
+                 event->conn_update_req.peer_params->latency,
+                 event->conn_update_req.peer_params->supervision_timeout);
+        return 0; /* Accept the peer's negotiated connection parameters. */
 
     case BLE_GAP_EVENT_DISCONNECT: {
         controller_slot_t *slot = slot_by_conn(event->disconnect.conn.conn_handle);
