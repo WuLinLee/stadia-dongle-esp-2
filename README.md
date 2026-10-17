@@ -2,6 +2,34 @@
 
 把 Google Stadia 蓝牙手柄连接到 ESP32-S3，再通过 USB 让 Windows 将它识别为 Xbox 360 / XInput 手柄。本项目包含震动转发、中文网页配置、额外按键映射和在线刷入页面。
 
+
+## 快速开始
+
+**如果你只是想使用接收器：**
+
+1. **确认硬件：**需要带原生 USB OTG 的 ESP32-S3 开发板，以及支持数据传输的 USB 线。不同板子的 COM/UART 烧录口与原生 USB 口可能是两个不同接口。
+2. **准备手柄：**Stadia 手柄必须已经切换到 Bluetooth（BLE）模式。Google 的蓝牙转换会永久关闭手柄原有的 Stadia Wi-Fi 功能；请在转换前确认自己接受这一变化。
+3. **刷写固件：**用桌面版 Chrome 或 Edge 打开[在线刷入页](https://wulinlee.github.io/stadia-dongle-esp-2/)，连接开发板的烧录串口并按网页提示操作。如果网页暂时无法打开，可从 [GitHub Actions](https://github.com/WuLinLee/stadia-dongle-esp-2/actions/workflows/release.yml) 下载成功构建的 `firmware` Artifact。
+4. **切换 USB 接口：**刷写完成后，按开发板说明改接原生 USB OTG 接口，再连接电脑使用。
+5. **配对和配置：**打开[USB 配置页](https://wulinlee.github.io/stadia-dongle-esp-2/config.html)，连接接收器、开始配对，并按页面提示操作手柄。
+6. **验证输入：**Windows 可运行 `joy.cpl`，确认系统能看到 Xbox 360 兼容手柄，再测试按键和震动。
+
+> **注意：**GitHub Actions 显示构建成功，只能说明自动测试和固件编译通过；不能替代开发板、手柄和游戏的实际测试。第一次刷写前请确认板型与 USB 接口，刷写过程中不要断开连接。
+
+## 目录
+
+- [功能与实现情况](#功能与实现情况)
+- [开源参考与致谢](#参考了哪些开源项目复用了什么)
+- [自动构建与发布](#自动编译是怎么工作的)
+- [刷入固件](#刷入固件)
+- [第一次配对](#第一次配对)
+- [默认按键与限制](#默认按键)
+- [常见问题](#常见问题)
+- [项目文件](#项目文件在哪里)
+- [维护者接手指南](#维护者--下一个-ai接手开发)
+- [本地构建](#开发者本地构建可选)
+
+
 > **普通使用者不需要在自己的电脑上编译。** 本项目配置了 GitHub Actions：每次推送开发分支或提交 Pull Request 时，GitHub 云端服务器会运行自动测试并尝试编译 ESP32-S3 固件。编译产物可以从 Actions 页面下载。
 
 ## 我应该怎么做？
