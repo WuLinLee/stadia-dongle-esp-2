@@ -190,7 +190,7 @@
 import { CAPABILITY, StadiaUsbApi, WebHidTransport } from "./webhid_transport.js";
 
 const $ = (id) => document.getElementById(id);
-const actions = ["none","f12","f13","f14","f15","f16","f17","f18","f19","f20","f21","f22","f23","f24","printscreen","escape","tab","space","enter","backspace","insert","delete","home","end","page_up","page_down","arrow_up","arrow_down","arrow_left","arrow_right","volume_up","volume_down","mute","play_pause","next_track","prev_track","remote_wake_only"];
+const actions = ["none","f12","f13","f14","f15","f16","f17","f18","f19","f20","f21","f22","f23","f24","printscreen","escape","tab","space","enter","backspace","insert","delete","home","end","page_up","page_down","arrow_up","arrow_down","arrow_left","arrow_right","volume_up","volume_down","mute","play_pause","next_track","prev_track","remote_wake_only","gamepad_a","gamepad_b","gamepad_x","gamepad_y","gamepad_lb","gamepad_rb","gamepad_start","gamepad_back","gamepad_l3","gamepad_r3","gamepad_guide","gamepad_dpad_up","gamepad_dpad_down","gamepad_dpad_left","gamepad_dpad_right","gamepad_lt","gamepad_rt"];
 const actionLabels = Object.freeze({
   none: "无操作",
   f12: "F12（Steam 截图）",
@@ -217,6 +217,23 @@ const actionLabels = Object.freeze({
   next_track: "下一曲",
   prev_track: "上一曲",
   remote_wake_only: "仅唤醒电脑",
+  gamepad_a: "手柄 A（XInput）",
+  gamepad_b: "手柄 B（XInput）",
+  gamepad_x: "手柄 X（XInput）",
+  gamepad_y: "手柄 Y（XInput）",
+  gamepad_lb: "手柄 LB（左肩键）",
+  gamepad_rb: "手柄 RB（右肩键）",
+  gamepad_start: "手柄 Start",
+  gamepad_back: "手柄 Back / View",
+  gamepad_l3: "手柄 L3（左摇杆按下）",
+  gamepad_r3: "手柄 R3（右摇杆按下）",
+  gamepad_guide: "手柄 Guide / Xbox 键",
+  gamepad_dpad_up: "手柄十字键上",
+  gamepad_dpad_down: "手柄十字键下",
+  gamepad_dpad_left: "手柄十字键左",
+  gamepad_dpad_right: "手柄十字键右",
+  gamepad_lt: "手柄 LT（左扳机全按）",
+  gamepad_rt: "手柄 RT（右扳机全按）",
 });
 const defaultMapping = Object.freeze({
   assistant_short: "f14",

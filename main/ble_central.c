@@ -40,6 +40,8 @@ static bool s_nimble_synced;
 #define BLE_RESTART_SCAN_US 1000000
 #define BLE_BOOT_SCAN_DELAY_US 2000000
 #define BLE_BATTERY_POLL_US 60000000
+#define BLE_RUMBLE_RETRY_BASE_MS 10
+#define BLE_RUMBLE_RETRY_MAX_SHIFT 4
 
 typedef enum {
     CONTROLLER_SLOT_EMPTY,
@@ -91,6 +93,11 @@ typedef struct {
     controller_slot_state_t state;
     struct ble_npl_callout rumble_callout;
     uint8_t rumble_payload[DONGLE_RUMBLE_REPORT_SIZE];
+    uint8_t rumble_inflight_payload[DONGLE_RUMBLE_REPORT_SIZE];
+    bool rumble_payload_valid;
+    bool rumble_dirty;
+    bool rumble_write_in_flight;
+    uint8_t rumble_retry_count;
 } controller_slot_t;
 
 static controller_slot_t s_slots[DONGLE_MAX_CONTROLLERS];
@@ -631,17 +638,85 @@ static int cccd_write_fn(uint16_t conn_handle, const struct ble_gatt_error *err,
     return 0;
 }
 
+/*
+ * Return a short, bounded backoff for immediate or asynchronous GATT write
+ * failures. Keep the newest requested motor level pending while backing off;
+ * in particular, never discard a zero-strength "stop rumble" update.
+ */
+static uint32_t rumble_retry_delay_ms(controller_slot_t *slot)
+{
+    if (slot->rumble_retry_count < BLE_RUMBLE_RETRY_MAX_SHIFT + 1) {
+        slot->rumble_retry_count++;
+    }
+    uint8_t shift = slot->rumble_retry_count ? slot->rumble_retry_count - 1 : 0;
+    return BLE_RUMBLE_RETRY_BASE_MS << shift;
+}
+
+/*
+ * GATT writes with response must be serialized. A new game rumble report can
+ * arrive while a write is in progress, so rumble_payload is the latest target
+ * and rumble_inflight_payload records what the controller is currently being
+ * sent. The completion callback schedules the newest target when needed.
+ */
+static int rumble_write_fn(uint16_t conn_handle, const struct ble_gatt_error *err,
+                           struct ble_gatt_attr *attr, void *arg)
+{
+    (void)attr;
+    controller_slot_t *slot = arg;
+    if (!slot_valid(slot, conn_handle)) return 0;
+
+    slot->rumble_write_in_flight = false;
+    uint32_t retry_delay_ms = 0;
+
+    if (err->status == 0) {
+        slot->rumble_retry_count = 0;
+        if (memcmp(slot->rumble_inflight_payload, slot->rumble_payload,
+                   DONGLE_RUMBLE_REPORT_SIZE) == 0) {
+            slot->rumble_dirty = false;
+        }
+    } else {
+        slot->rumble_dirty = true;
+        retry_delay_ms = rumble_retry_delay_ms(slot);
+        ESP_LOGW(TAG,
+                 "slot %u usb %u rumble write completion failed conn=%u status=%d; retrying in %u ms",
+                 slot->slot_index, slot->usb_gamepad_index, conn_handle,
+                 err->status, (unsigned)retry_delay_ms);
+    }
+
+    if (slot->rumble_dirty) {
+        ble_npl_callout_reset(&slot->rumble_callout,
+                              ble_npl_time_ms_to_ticks32(retry_delay_ms));
+    }
+    return 0;
+}
+
 static void rumble_callout_fn(struct ble_npl_event *ev)
 {
     controller_slot_t *slot = ble_npl_event_get_arg(ev);
-    if (!slot || !slot->used || slot->state != CONTROLLER_SLOT_READY || !slot->output_val_handle) return;
+    if (!slot || !slot->used || slot->state != CONTROLLER_SLOT_READY ||
+        !slot->output_val_handle || !slot->rumble_dirty) {
+        return;
+    }
+
+    /* Do not start a second request until NimBLE reports completion. */
+    if (slot->rumble_write_in_flight) return;
+
+    memcpy(slot->rumble_inflight_payload, slot->rumble_payload,
+           DONGLE_RUMBLE_REPORT_SIZE);
+    slot->rumble_write_in_flight = true;
+
     int rc = ble_gattc_write_flat(slot->conn_handle, slot->output_val_handle,
-                                  slot->rumble_payload, DONGLE_RUMBLE_REPORT_SIZE, NULL, NULL);
+                                  slot->rumble_inflight_payload,
+                                  DONGLE_RUMBLE_REPORT_SIZE, rumble_write_fn, slot);
     if (rc != 0) {
-        ESP_LOGW(TAG, "slot %u usb %u rumble write start failed conn=%u rc=%d",
-                 slot->slot_index, slot->usb_gamepad_index, slot->conn_handle, rc);
-    } else {
-        ESP_LOGI(TAG, "slot %u usb %u rumble routed", slot->slot_index, slot->usb_gamepad_index);
+        slot->rumble_write_in_flight = false;
+        uint32_t retry_delay_ms = rumble_retry_delay_ms(slot);
+        ESP_LOGW(TAG,
+                 "slot %u usb %u rumble write start failed conn=%u rc=%d; retrying in %u ms",
+                 slot->slot_index, slot->usb_gamepad_index, slot->conn_handle,
+                 rc, (unsigned)retry_delay_ms);
+        ble_npl_callout_reset(&slot->rumble_callout,
+                              ble_npl_time_ms_to_ticks32(retry_delay_ms));
     }
 }
 
@@ -655,8 +730,19 @@ void ble_central_send_rumble(uint8_t gamepad_index, const uint8_t *payload, size
         ESP_LOGW(TAG, "Ignoring rumble for disconnected usb %u", gamepad_index);
         return;
     }
-    memcpy(slot->rumble_payload, payload, DONGLE_RUMBLE_REPORT_SIZE);
-    ble_npl_callout_reset(&slot->rumble_callout, 0);
+
+    if (!slot->rumble_payload_valid ||
+        memcmp(slot->rumble_payload, payload, DONGLE_RUMBLE_REPORT_SIZE) != 0) {
+        memcpy(slot->rumble_payload, payload, DONGLE_RUMBLE_REPORT_SIZE);
+        slot->rumble_payload_valid = true;
+        slot->rumble_dirty = true;
+        slot->rumble_retry_count = 0;
+    }
+
+    /* Skip unchanged reports unless this target still needs to be delivered. */
+    if (slot->rumble_dirty && !slot->rumble_write_in_flight) {
+        ble_npl_callout_reset(&slot->rumble_callout, 0);
+    }
     if (s_slot_lock) xSemaphoreGive(s_slot_lock);
 }
 
@@ -752,6 +838,28 @@ static int gap_event_fn(struct ble_gap_event *event, void *arg)
         break;
     }
 
+    case BLE_GAP_EVENT_CONN_UPDATE: {
+        struct ble_gap_conn_desc desc;
+        if (ble_gap_conn_find(event->conn_update.conn_handle, &desc) == 0) {
+            ESP_LOGI(TAG,
+                     "slot %u connection parameters updated status=%d interval=%u (%.2f ms) latency=%u timeout=%u ms",
+                     slot_by_conn(event->conn_update.conn_handle)
+                         ? slot_by_conn(event->conn_update.conn_handle)->slot_index : 255,
+                     event->conn_update.status, desc.conn_itvl,
+                     desc.conn_itvl * 1.25, desc.conn_latency,
+                     desc.supervision_timeout * 10);
+        }
+        break;
+    }
+
+    case BLE_GAP_EVENT_L2CAP_UPDATE_REQ:
+        ESP_LOGI(TAG, "Peer requests BLE connection parameters: min=%u max=%u latency=%u timeout=%u",
+                 event->conn_update_req.peer_params->itvl_min,
+                 event->conn_update_req.peer_params->itvl_max,
+                 event->conn_update_req.peer_params->latency,
+                 event->conn_update_req.peer_params->supervision_timeout);
+        return 0; /* Accept the peer's negotiated connection parameters. */
+
     case BLE_GAP_EVENT_DISCONNECT: {
         controller_slot_t *slot = slot_by_conn(event->disconnect.conn.conn_handle);
         uint8_t usb = slot ? slot->usb_gamepad_index : 0;
@@ -795,28 +903,10 @@ static int gap_event_fn(struct ble_gap_event *event, void *arg)
         button_actions_on_state(slot->usb_gamepad_index, &state);
 
         if (mouse_mode_is_active(slot->usb_gamepad_index)) {
-            ble_to_usb_msg_t neutral = {
-                .gamepad_index = slot->usb_gamepad_index,
-                .data = {0x00, 0x14},
-                .len = DONGLE_XBOX_REPORT_SIZE,
-            };
-            if (xQueueSendToBack(ble_to_usb_queue, &neutral, 0) != pdTRUE) {
-                ble_to_usb_msg_t dummy;
-                xQueueReceive(ble_to_usb_queue, &dummy, 0);
-                xQueueSendToBack(ble_to_usb_queue, &neutral, 0);
-            }
+            bridge_send_neutral(slot->usb_gamepad_index);
             mouse_mode_cache_state(slot->usb_gamepad_index, &state);
         } else {
-            ble_to_usb_msg_t msg = {
-                .gamepad_index = slot->usb_gamepad_index,
-                .len = DONGLE_XBOX_REPORT_SIZE,
-            };
-            memcpy(msg.data, xbox, sizeof(xbox));
-            if (xQueueSendToBack(ble_to_usb_queue, &msg, 0) != pdTRUE) {
-                ble_to_usb_msg_t dummy;
-                xQueueReceive(ble_to_usb_queue, &dummy, 0);
-                xQueueSendToBack(ble_to_usb_queue, &msg, 0);
-            }
+            bridge_send_xbox_report(slot->usb_gamepad_index, xbox, sizeof(xbox));
         }
         break;
     }

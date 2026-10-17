@@ -1,199 +1,65 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Stadia BT Dongle — Web Installer</title>
+  <meta name="description" content="Stadia BT Dongle 独立在线刷入页：通过浏览器为 ESP32-S3 刷入固件并配置无线 Stadia 手柄接收器。" />
+  <meta name="theme-color" content="#10131a" />
+  <title>Stadia BT Dongle · 在线刷入</title>
   <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      background: #0f0f0f;
-      color: #e8e8e8;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      padding: 2rem;
-    }
-
-    .card {
-      background: #1a1a1a;
-      border: 1px solid #2a2a2a;
-      border-radius: 16px;
-      padding: 2.5rem 2rem;
-      max-width: 480px;
-      width: 100%;
-      text-align: center;
-    }
-
-    .logo {
-      font-size: 2.5rem;
-      margin-bottom: 0.5rem;
-    }
-
-    h1 {
-      font-size: 1.4rem;
-      font-weight: 600;
-      margin-bottom: 0.4rem;
-      color: #fff;
-    }
-
-    .subtitle {
-      font-size: 0.9rem;
-      color: #888;
-      margin-bottom: 2rem;
-    }
-
-    .steps {
-      text-align: left;
-      margin-bottom: 2rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.9rem;
-    }
-
-    .step {
-      display: flex;
-      gap: 0.75rem;
-      align-items: flex-start;
-      font-size: 0.9rem;
-      color: #ccc;
-      line-height: 1.5;
-    }
-
-    .step-num {
-      background: #2a2a2a;
-      border-radius: 50%;
-      width: 24px;
-      height: 24px;
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.75rem;
-      font-weight: 700;
-      color: #fff;
-      margin-top: 1px;
-    }
-
-    .install-row {
-      display: flex;
-      justify-content: center;
-      margin-bottom: 1.5rem;
-    }
-
-    esp-web-install-button {
-      --esp-tools-button-color: #fff;
-      --esp-tools-button-text-color: #000;
-    }
-
-    esp-web-install-button::part(button) {
-      background: #fff;
-      color: #000;
-      font-weight: 600;
-      font-size: 0.95rem;
-      padding: 0.65rem 1.6rem;
-      border-radius: 8px;
-      border: none;
-      cursor: pointer;
-      transition: background 0.15s;
-    }
-
-    esp-web-install-button::part(button):hover {
-      background: #ddd;
-    }
-
-    .config-row {
-      margin-bottom: 1.5rem;
-    }
-
-    .config-link {
-      display: inline-block;
-      padding: 0.65rem 1.1rem;
-      border: 1px solid #555;
-      border-radius: 8px;
-      color: #ddd;
-      font-size: 0.9rem;
-      font-weight: 600;
-      text-decoration: none;
-      transition: background 0.15s, border-color 0.15s;
-    }
-
-    .config-link:hover {
-      background: #252525;
-      border-color: #888;
-    }
-
-    .config-link:focus-visible {
-      outline: 3px solid #93c5fd;
-      outline-offset: 3px;
-    }
-
-    .note {
-      font-size: 0.8rem;
-      color: #555;
-      line-height: 1.5;
-    }
-
-    .note a {
-      color: #888;
-    }
-
-    .compat-warning {
-      display: none;
-      margin-bottom: 1.5rem;
-      padding: 0.75rem 1rem;
-      background: #2a1a00;
-      border: 1px solid #553300;
-      border-radius: 8px;
-      font-size: 0.85rem;
-      color: #cc8800;
-    }
+    :root { color-scheme: dark; --bg:#10131a; --panel:#191e29; --line:#2c3445; --text:#eef2fb; --muted:#a5aec0; --blue:#8ab4ff; --accent:#dce8ff; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; background:radial-gradient(ellipse at top,#1c2a42 0%,var(--bg) 52%); color:var(--text); font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; padding:32px 16px; display:flex; align-items:center; justify-content:center; }
+    main { width:min(100%,650px); }
+    .eyebrow { color:var(--blue); font-size:.82rem; font-weight:700; letter-spacing:.14em; text-transform:uppercase; }
+    h1 { font-size:clamp(1.8rem,5vw,2.7rem); line-height:1.1; margin:.8rem 0 .75rem; }
+    .intro { color:var(--muted); line-height:1.75; margin:0 0 24px; }
+    .panel { background:rgba(25,30,41,.94); border:1px solid var(--line); border-radius:20px; padding:clamp(20px,5vw,34px); box-shadow:0 22px 70px #0005; }
+    .steps { list-style:none; padding:0; margin:0 0 26px; display:grid; gap:16px; }
+    .steps li { display:grid; grid-template-columns:34px 1fr; gap:12px; line-height:1.6; color:#d4dbea; }
+    .num { width:30px; height:30px; display:grid; place-items:center; border-radius:50%; background:#263650; color:#c4dcff; font-weight:800; }
+    .install { display:flex; align-items:center; justify-content:center; margin:26px 0 18px; }
+    esp-web-install-button { --esp-tools-button-color:#eaf1ff; --esp-tools-button-text-color:#101725; }
+    esp-web-install-button::part(button) { background:#eaf1ff; color:#101725; border:0; border-radius:10px; padding:12px 28px; font-weight:800; font-size:1rem; cursor:pointer; }
+    .links { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin:20px 0 0; }
+    .links a { color:var(--accent); text-decoration:none; border:1px solid #49556a; border-radius:10px; padding:10px 14px; font-size:.9rem; }
+    .links a:hover { border-color:var(--blue); background:#ffffff08; }
+    .alert { display:none; padding:12px 14px; border:1px solid #6d5734; border-radius:10px; color:#f5cd83; background:#3a2b15; font-size:.9rem; line-height:1.6; margin:18px 0; }
+    .warning { font-size:.86rem; color:#c5ccda; line-height:1.7; margin:22px 0 0; padding-top:18px; border-top:1px solid var(--line); }
+    footer { color:#7f8ba1; text-align:center; line-height:1.7; font-size:.83rem; padding:18px 8px 0; }
+    footer a { color:#aabbd8; }
+    a:focus-visible, esp-web-install-button:focus-visible { outline:3px solid #8ab4ff; outline-offset:3px; }
   </style>
 </head>
 <body>
-  <div class="card">
-    <div class="logo">🎮</div>
-    <h1>Stadia BT Dongle</h1>
-    <p class="subtitle">Flash your ESP32-S3 directly from the browser — no software required.</p>
-
-    <div class="steps">
-      <div class="step">
-        <span class="step-num">1</span>
-        <span>Plug your ESP32-S3 into this PC using the <strong>COM/UART USB port</strong> (used for programming, not the native USB port).</span>
+  <main>
+    <div class="eyebrow">WuLinLee · Stadia BT Dongle</div>
+    <h1>ESP32-S3 固件在线刷入</h1>
+    <p class="intro">将 Google Stadia 蓝牙手柄转换为 Windows 可识别的 Xbox 360 / XInput USB 手柄。此页面由本项目仓库维护，刷入用的固件和配置页也来自本项目。</p>
+    <section class="panel" aria-label="刷入说明">
+      <ol class="steps">
+        <li><span class="num">1</span><span>使用支持数据传输的 USB 线，将 ESP32-S3 接到电脑的 <strong>COM / UART 烧录接口</strong>。不要选择开发板日常使用的原生 USB / OTG 接口。</span></li>
+        <li><span class="num">2</span><span>点击下方 <strong>Install</strong>，在浏览器弹出的设备列表中选择正确的串口，然后等待刷入完成。</span></li>
+        <li><span class="num">3</span><span>刷入后拔掉 USB，改接开发板的 <strong>原生 USB / OTG 接口</strong>。Windows 中运行 <code>joy.cpl</code>，确认 Xbox 360 兼容手柄已出现。</span></li>
+      </ol>
+      <div class="alert" id="compat-warning">当前浏览器不支持 Web Serial。请在桌面版 Google Chrome 或 Microsoft Edge 中打开此页面。</div>
+      <div class="install">
+        <esp-web-install-button manifest="manifest.json"></esp-web-install-button>
       </div>
-      <div class="step">
-        <span class="step-num">2</span>
-        <span>Click <strong>Install</strong>, select the correct COM port, and wait for flashing to finish (~30 s).</span>
+      <div class="links">
+        <a href="firmware-merged.bin" download>下载完整刷写固件 (.bin)</a>
+        <a href="config.html">打开 USB 配置页</a>
+        <a href="https://github.com/WuLinLee/stadia-dongle-esp-2/releases/latest" target="_blank" rel="noopener">最新版本 / Releases</a>
       </div>
-      <div class="step">
-        <span class="step-num">3</span>
-        <span>Unplug the board, then plug it into your PC using the <strong>native USB port</strong>. It will appear as an Xbox 360 controller.</span>
-      </div>
-    </div>
-
-    <div class="compat-warning" id="compat-warning">
-      Your browser doesn't support WebSerial. Please use <strong>Chrome</strong> or <strong>Edge</strong> on desktop.
-    </div>
-
-    <div class="install-row">
-      <esp-web-install-button manifest="manifest.json"></esp-web-install-button>
-    </div>
-
-    <div class="config-row">
-      <a class="config-link" href="config.html">Configure an installed receiver over USB</a>
-    </div>
-
-    <p class="note">
-      Uses <a href="https://esphome.github.io/esp-web-tools/" target="_blank" rel="noopener">ESP Web Tools</a> — your browser talks directly to the device; no data leaves your machine.
-      Source and latest firmware on <a href="https://github.com/jazz-zzzz/stadia-dongle-esp" target="_blank" rel="noopener">GitHub</a>.
-    </p>
-  </div>
-
+      <p class="warning"><strong>注意：</strong>这是完整刷写镜像，不是 OTA 应用镜像。完整刷写可能影响已保存的配对信息；若升级后手柄不能自动重连，请在 USB 配置页重新配对。刷入过程由浏览器直接与开发板通信；页面通过 ESP Web Tools 加载串口刷写组件。</p>
+    </section>
+    <footer>
+      源码：<a href="https://github.com/WuLinLee/stadia-dongle-esp-2" target="_blank" rel="noopener">WuLinLee/stadia-dongle-esp-2</a>
+      · <a href="https://github.com/Scalee/stadia-dongle" target="_blank" rel="noopener">上游项目</a>
+      <br />请使用桌面版 Chrome / Edge；刷入过程中不要拔掉 USB 线。
+    </footer>
+  </main>
   <script>
     if (!("serial" in navigator)) {
       document.getElementById("compat-warning").style.display = "block";

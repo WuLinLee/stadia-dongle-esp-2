@@ -163,9 +163,14 @@ static bool xbox_xfer_cb(uint8_t rhport, uint8_t ep_addr,
 
     if (ep_addr == gp->ep_out) {
         if (xferred_bytes >= 5 && gp->out_buf[0] == 0x00 && gp->out_buf[1] == 0x08) {
+            /*
+             * XInput sends each motor as an 8-bit level. Stadia expects two
+             * little-endian 16-bit motor levels, so replicate each byte:
+             * n * 257 expands 0..255 to the full 0..65535 range.
+             */
             usb_to_ble_msg_t msg = {
                 .gamepad_index = gp->index,
-                .data = {0x00, gp->out_buf[3], 0x00, gp->out_buf[4]},
+                .data = {gp->out_buf[3], gp->out_buf[3], gp->out_buf[4], gp->out_buf[4]},
                 .len = DONGLE_RUMBLE_REPORT_SIZE,
             };
             if (xQueueSendToBack(usb_to_ble_queue, &msg, 0) != pdTRUE) {

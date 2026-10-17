@@ -43,6 +43,8 @@
 
 1. 在 Windows 游戏控制器测试页确认 A/B/X/Y、方向键、摇杆和扳机正常。
 2. 在支持 XInput 震动的游戏或测试程序中确认双马达震动仍能传到 Stadia 手柄。
+3. 在《Silksong》中重复冲刺后停止操作，确认震动会及时停止；在《A Hat in Time》中连续旋转帽子选择轮盘，确认强弱变化和节奏仍可分辨。
+4. 如出现持续震动或强度被锁定，保存 ESP32 串口日志，重点检查 `rumble write start failed`、`rumble write completion failed` 与 USB `rumble out large=... small=...` 记录；同时确认游戏确实发出了零强度停止报告。
 3. 短按 Capture，确认默认输出 `F12`，并能触发 Steam 截图。
 4. 长按 Capture，确认默认输出 `F15`，且松开后不会再触发 `F12`。
 5. 同时按住 Assistant + Capture 约 2 秒，确认鼠标模式仍能进入和退出。

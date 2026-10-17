@@ -93,6 +93,23 @@ export const ACTION_NAMES = Object.freeze([
   "next_track",
   "prev_track",
   "f12",
+  "gamepad_a",
+  "gamepad_b",
+  "gamepad_x",
+  "gamepad_y",
+  "gamepad_lb",
+  "gamepad_rb",
+  "gamepad_start",
+  "gamepad_back",
+  "gamepad_l3",
+  "gamepad_r3",
+  "gamepad_guide",
+  "gamepad_dpad_up",
+  "gamepad_dpad_down",
+  "gamepad_dpad_left",
+  "gamepad_dpad_right",
+  "gamepad_lt",
+  "gamepad_rt",
 ]);
 
 const STATE_NAMES = Object.freeze([

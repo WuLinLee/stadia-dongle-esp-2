@@ -21,6 +21,8 @@
 #include "bridge.h"
 #include "usb_xbox.h"
 #include "ble_central.h"
+
+#include <string.h>
 #include "button_actions.h"
 #include "config_store.h"
 #include "controller_manager.h"
@@ -71,9 +73,32 @@ static void recovery_check(void)
 static void ble_rumble_task(void *arg)
 {
     usb_to_ble_msg_t msg;
+    usb_to_ble_msg_t newest[DONGLE_MAX_CONTROLLERS];
+    bool pending[DONGLE_MAX_CONTROLLERS];
+
     while (1) {
-        if (xQueueReceive(usb_to_ble_queue, &msg, portMAX_DELAY) == pdTRUE) {
-            ble_central_send_rumble(msg.gamepad_index, msg.data, msg.len);
+        memset(pending, 0, sizeof(pending));
+        if (xQueueReceive(usb_to_ble_queue, &msg, portMAX_DELAY) != pdTRUE) {
+            continue;
+        }
+
+        do {
+            if (msg.gamepad_index < DONGLE_MAX_CONTROLLERS) {
+                newest[msg.gamepad_index] = msg;
+                pending[msg.gamepad_index] = true;
+            }
+        } while (xQueueReceive(usb_to_ble_queue, &msg, 0) == pdTRUE);
+
+        /*
+         * Motor output is level-triggered: keep the newest report per gamepad
+         * rather than spending a GATT Write-With-Response for every fade step.
+         * Preserve one latest report for each controller if two are connected.
+         */
+        for (uint8_t i = 0; i < DONGLE_MAX_CONTROLLERS; i++) {
+            if (pending[i]) {
+                ble_central_send_rumble(newest[i].gamepad_index,
+                                        newest[i].data, newest[i].len);
+            }
         }
     }
 }
