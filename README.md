@@ -1,251 +1,140 @@
-# Stadia 无线手柄接收器
+# Stadia 无线手柄接收器（ESP32-S3）
 
-让 Google Stadia 手柄继续在 Windows 上无线使用，并保留双马达震动。
+把 Google Stadia 蓝牙手柄连接到 ESP32-S3，再通过 USB 让 Windows 将它识别为 Xbox 360 / XInput 手柄。项目支持双马达震动，也提供网页配置和固件在线刷入功能。
 
-一块 ESP32-S3 会连接 Stadia 手柄，再通过 USB 向电脑提供 Xbox 360 兼容手柄、键盘和鼠标接口。无需安装专用驱动，也不依赖云服务。
+> **最重要的一点：不需要在自己的电脑上安装 ESP-IDF，也不需要自己编译。**
+> 本项目使用 **GitHub Actions（GitHub 提供的云端服务器）自动测试并编译固件**。你可以在 GitHub 上下载编译结果。
 
-```text
-Stadia 手柄 ←── Bluetooth LE ──→ ESP32-S3 ←── USB ──→ Windows
-```
+## 我应该怎么做？
 
-本项目 fork 自 [danzig666/stadia-dongle-esp](https://github.com/danzig666/stadia-dongle-esp)，其上游为 [Scalee/stadia-dongle](https://github.com/Scalee/stadia-dongle)。源码、独立刷入页与后续固件更新均由本仓库维护。
+### 方式一：查看 GitHub 云端编译结果（开发版）
 
-## 能做什么
+每次把代码提交到本项目的开发分支，GitHub Actions 会自动运行测试和 ESP32-S3 编译。
 
-- 同时连接最多 2 个 Stadia 手柄
-- Xbox 360 / XInput 按键、摇杆和模拟扳机
-- 将游戏的双马达震动转发到 Stadia 手柄
-- 将 Assistant 和 Capture 映射为独立键盘按键
-- 一键切换鼠标模式
-- 通过中文 Web GUI 配对、查看状态和修改配置；Assistant / Capture 可映射到 XInput 手柄按钮
-- 通过 USB 配置，不会占用 Windows 当前的 Wi-Fi
-- 按需启动 Wi-Fi 热点，用于 OTA 和故障恢复
-- 保存配对记录和按键配置，断电后仍然保留
+1. 打开 [GitHub Actions 编译页面](https://github.com/WuLinLee/stadia-dongle-esp-2/actions/workflows/release.yml)。
+2. 找到最新一条 **Build & Release** 任务，确认它对应分支 `codex/rumble-write-reliability` 或你要测试的提交。
+3. 点进任务查看结果：
+   - **绿色勾号（Success）**：自动测试和固件编译都通过了。
+   - **红色叉号（Failure）**：编译或测试失败，先不要刷这个版本。
+   - **黄色圆圈（In progress）**：GitHub 还在编译。
+4. 编译成功后，在任务页面下方的 **Artifacts** 区域下载名为 **firmware** 的压缩包。
+5. 解压后会得到 `firmware-merged.bin`。这是完整刷写镜像，不是用于 OTA 的单独应用镜像。
 
-Stadia 手柄没有扳机马达，因此本项目不提供 Xbox Series 手柄那种扳机震动。
+**注意：**开发版的 Artifact 通常只保留 7 天。分支上的编译成功不代表真机测试已通过；震动、蓝牙配对和额外按键仍需实际连接手柄验证。
 
-额外按键的动作可选键盘、媒体键，也可直接输出 XInput 手柄 A/B/X/Y、LB/RB、Start/Back、L3/R3、Guide、十字键和 LT/RT。手柄按钮动作会发出约 20 ms 的按下脉冲；LT/RT 会按全按强度输出，并与实际手柄输入叠加，不会清除真实按键状态。
+### 方式二：使用在线刷入网页（适合普通用户）
 
-## 需要什么
+正式网页只会在修改合并到 `main` 分支、并且 GitHub Pages 部署成功后更新。部署完成后，可打开：
 
-- 带原生 USB OTG 的 ESP32-S3 开发板
-- 4 MB Flash 或更大
-- 一根支持数据传输的 USB 线
-- 桌面版 Chrome 或 Edge
+- [项目在线安装器](https://wulinlee.github.io/stadia-dongle-esp-2/)
+- [中文 USB 配置页](https://wulinlee.github.io/stadia-dongle-esp-2/config.html)
+- [GitHub Releases 正式版本](https://github.com/WuLinLee/stadia-dongle-esp-2/releases/latest)
 
-开发板通常有两个 USB 接口：
+如果在线页面尚未部署，或它显示的版本不是你要测试的开发版，请不要假设它已经包含最新修改。请先查看上面的 Actions 编译记录。
 
-- **COM/UART**：烧录固件
-- **USB/OTG**：日常使用，向电脑模拟手柄
+## 如何刷入固件
 
-如果你的开发板只有一个接口，请以开发板说明书为准。
+正式在线安装器可用时，按以下步骤操作：
 
-## 从零开始
+1. 使用支持数据传输的 USB 线，将 ESP32-S3 连接到电脑的 **COM / UART 烧录接口**。
+2. 在桌面版 **Chrome 或 Edge** 打开[在线安装器](https://wulinlee.github.io/stadia-dongle-esp-2/)。
+3. 点击 **Install**，在弹出的设备列表中选择开发板对应的串口。
+4. 等待刷入完成；过程中不要拔掉 USB。
+5. 拔掉 USB，改接开发板的 **原生 USB / OTG 接口**，这是日常连接电脑使用的接口。
+6. 在 Windows 按 `Win + R`，输入 `joy.cpl` 并回车，检查是否出现 Xbox 360 兼容手柄。
 
-### 1. 刷入固件
+不同开发板接口标记可能不同，请以板子说明书为准。如果电脑没有识别到手柄，先确认已从 COM/UART 接口换到了 USB/OTG 接口，再按一次 RESET/RST。
 
-1. 用开发板的 **COM/UART** 接口连接电脑。
-2. 打开[在线安装器](https://wulinlee.github.io/stadia-dongle-esp-2/)。
-3. 点击 **Install**，选择开发板对应的 COM 口。
-4. 等待安装完成，然后断开 USB。
-5. 改用开发板的 **USB/OTG** 接口连接电脑。
+## 功能
 
-安装完成后，Windows 不一定弹出通知。可以运行 `joy.cpl`，检查是否出现 Xbox 360 兼容手柄。
+- 最多连接 2 个 Stadia 手柄。
+- USB 输出 Xbox 360 / XInput 按键、摇杆和扳机。
+- 将游戏的双马达震动转发给 Stadia 手柄。
+- Assistant / Capture 额外按键支持配置短按和长按动作。
+- 额外按键动作可选择键盘、媒体键或 XInput 按钮（A/B/X/Y、LB/RB、Start/Back、L3/R3、Guide、十字键、LT/RT）。
+- 中文网页可用于手柄配对、查看状态、修改动作和管理 Wi-Fi 热点。
+- Wi-Fi 热点默认关闭；日常 USB 配置不需要改变电脑的 Wi-Fi。
 
-如果设备仍显示为 ESP32 串口，或只有电源灯亮，按一次 **RESET/RST**，等待几秒即可。不要连续快速重启；恢复机制会把连续重启识别为故障操作。
+Stadia 手柄没有 Xbox 扳机马达，因此无法提供 Xbox Series 手柄那种独立的扳机震动效果。
 
-### 2. 连接配置页
+## 第一次使用
 
-1. 打开[中文 USB 配置页](https://wulinlee.github.io/stadia-dongle-esp-2/config.html)。
-2. 点击 **连接 USB**。
-3. 在浏览器设备列表中选择 Stadia 接收器。
+1. 通过 USB 配置页连接接收器。
+2. 点击 **开始配对**。
+3. 按住手柄的 **Stadia + Y**，直到指示灯开始闪烁黄色或橙色。
+4. 等待配置页显示手柄 **已就绪**。
 
-配置页通过 WebHID 直接与 ESP32 通信，不会上传手柄数据，也不会让 Windows 切换 Wi-Fi。
-
-### 3. 配对手柄
-
-1. 在配置页点击 **开始配对**。
-2. 按住手柄的 **Stadia + Y**，直到状态灯闪烁黄色或橙色。
-3. 等待配置页显示手柄 **已就绪**。
-
-“已连接”和“已就绪”不是一回事。只有显示“已就绪”后，按键、摇杆和震动才算全部可用。
-
-完整刷写可能清除 ESP32 中的旧配对密钥，但手柄仍记得旧密钥。如果手柄一直黄灯闪烁，或者出现“能震动但没有输入”：
-
-1. 在配置页忘记该手柄。
-2. 关闭手柄。
-3. 重新点击 **开始配对**。
-4. 再次按住 **Stadia + Y** 完成配对。
-
-成功一次后，后续开机通常会自动重连。
+**“已连接”和“已就绪”不同。**请等到“已就绪”后再测试输入和震动。刷写固件后若手柄无法自动重连，可在配置页忘记该手柄，再重新配对。
 
 ## 默认按键
 
-常规按键按 Xbox 360 布局输出：
-
-| Stadia | Windows / XInput |
+| Stadia 按键 | 默认输出 |
 |---|---|
-| A / B / X / Y | A / B / X / Y |
-| Menu | Start |
-| Options | Back |
-| Stadia | Guide |
-| LB / RB、LT / RT | 对应肩键与扳机 |
-| 摇杆、方向键 | 对应摇杆与方向键 |
+| A / B / X / Y | Xbox A / B / X / Y |
+| Menu / Options | Start / Back |
+| Stadia 按键 | Guide |
+| LB / RB、LT / RT | 对应肩键和扳机 |
+| 摇杆、方向键 | 对应摇杆和方向键 |
+| Assistant / Capture | 默认映射为键盘动作，可在网页中修改 |
 
-Xbox 360 报告没有 Assistant 和 Capture，因此它们通过独立的键盘接口输出：
+额外按键的映射保存在接收器中，正常情况下修改配置不需要重新刷写固件。
 
-| Stadia 按键 | 短按 | 长按，默认 1 秒 |
-|---|---|---|
-| Assistant | F14 | 无操作 |
-| Capture | F12（Steam 截图） | F15 |
+## 震动修复说明
 
-F12 默认用于 Steam 截图。F14 和 F15 通常不会触发 Windows 系统功能，很适合交给 Steam Input、AutoHotkey 或其他工具自行映射。也可以在 Web GUI 中改成 F12–F24、PrintScreen、媒体键、方向键或其他常用按键。
+本项目正在改进 BLE 震动写入的可靠性，包括写入失败后的重试、减少过期震动更新挤占，以及更准确地转换马达强度。这些改动主要针对快速改变震动强度或停止震动时，可能出现的震动节奏不准、停止指令丢失等情况。
 
-## 震动
+是否彻底解决具体游戏中的问题，仍需使用真实 ESP32-S3 开发板和 Stadia 手柄测试。**GitHub 编译通过只代表代码通过自动检查和编译，不等于已经完成真机验证。**
 
-游戏发送的 Xbox 360 大、小马达强度会映射到 Stadia 手柄的两个马达。每个 8 位强度值按 `n × 257` 扩展到 Stadia 所需的 16 位小端强度，覆盖完整的 0–65535 范围。BLE 写入串行等待完成，失败时退避重试，快速变化时只保留每个手柄最新的目标强度。
+## GitHub 云端编译失败怎么办？
 
-BLE 输出写入会串行等待完成；若写入启动或完成失败，固件会退避重试，并在写入期间保留最新目标强度，避免一次失败永久丢失停止震动指令。具体游戏的震动节奏仍需在真实硬件上验证。
+1. 打开 [Actions 页面](https://github.com/WuLinLee/stadia-dongle-esp-2/actions/workflows/release.yml)。
+2. 点击带红色叉号的任务。
+3. 查看失败的步骤：`Test USB configuration protocol` 是自动测试；`Build with ESP-IDF` 是固件编译。
+4. 将失败步骤底部的错误信息发给维护者。不要把失败任务生成的旧固件当成新版本。
 
-Steam 的控制器测试通常不会一直发送满强度，因此测试时可能感觉偏轻；这不代表固件限制了最大震动。游戏中的实际强度由游戏和 Steam Input 决定。
+如果完全看不到编译任务，请检查仓库的 **Actions** 是否已启用；代码提交到 `codex/**` 分支或创建 Pull Request 时，工作流会自动触发。
 
-## 鼠标模式
+## 发布版本与在线网页如何更新？
 
-同时按住 **Assistant + Capture** 约 2 秒即可切换：
+本项目的自动工作流负责：
 
-- 震动 2 次：进入鼠标模式
-- 震动 3 次：返回手柄模式
+1. 在 GitHub 服务器运行配置协议测试。
+2. 使用 ESP-IDF 6.0 为 ESP32-S3 编译固件。
+3. 将完整刷写镜像作为 `firmware` Artifact 上传。
+4. 正式发布 `v*` 标签时，把固件附加到 GitHub Release。
+5. 当代码进入 `main` 且构建成功时，将新的固件和网页发布到 GitHub Pages。
 
-鼠标模式默认使用以下映射：
-
-| Stadia | 鼠标操作 |
-|---|---|
-| 左摇杆 | 移动光标 |
-| A / B / X | 左键 / 右键 / 中键 |
-| 方向键上 / 下 | 滚轮 |
-| 右摇杆 Y 轴 | 模拟滚轮 |
-| 按住 LT | 精细移动 |
-| 按住 RT | 快速移动 |
-
-每次开机都会回到普通手柄模式。
-
-## Web GUI 与 Wi-Fi
-
-日常配置推荐使用[在线 USB 配置页](https://wulinlee.github.io/stadia-dongle-esp-2/config.html)。它可以：
-
-- 配对、查看和删除手柄
-- 查看实时按键、摇杆、扳机和电量
-- 修改 Assistant 和 Capture 的短按、长按动作
-- 修改长按时间
-- 启动或停止 Wi-Fi 热点
-- 重启接收器
-
-Wi-Fi 热点默认关闭，不会常驻。它只用于 OTA 或 USB 配置不可用时的恢复。
-
-正常情况下，可在 USB 配置页点击 **启动 Wi-Fi 热点**。热点名称为 `StadiaDongle-XXXX`，连接后打开 `http://192.168.4.1`。
-
-USB 页面不可用时，还有两个恢复入口：
-
-- 已连接手柄时，同时按住 **Stadia + Options + Menu** 约 5 秒。
-- 在 30 秒内快速重启接收器 3 次。
-
-热点在没有客户端连接时默认于 120 秒后关闭。快速重启 5 次会清除所有手柄绑定，只应作为最后的恢复手段。
-
-### 完全本地运行配置页
-
-USB 配置页本身没有运行时云依赖。下载仓库后，可在项目根目录运行：
-
-```powershell
-py -m http.server 8765 --directory main
-```
-
-然后用 Chrome 或 Edge 打开 `http://localhost:8765`。页面由本机提供，通信仍然直接走 USB。
-
-在线安装器需要联网下载页面组件和固件；烧录过程由浏览器直接连接开发板。
-
-## 更新固件
-
-修改按键或常规设置不需要重新烧录，保存后会写入 ESP32 的 NVS。
-
-需要升级固件时，最稳妥的方法是重新使用[本项目在线安装器](https://wulinlee.github.io/stadia-dongle-esp-2/)，或从[本仓库 Releases](https://github.com/WuLinLee/stadia-dongle-esp-2/releases/latest)下载固件。直接覆盖即可，不需要先删除旧固件。完整刷写可能清除配对记录，因此升级后可能需要重新配对手柄。
-
-Wi-Fi 页面也提供 OTA，但当前 OTA 流程尚未完成充分真机验证。OTA 只能上传构建产生的应用镜像 `build/stadia-dongle.bin`，不要上传完整安装镜像 `firmware-merged.bin`。
+开发分支的成功构建不会自动更新正式在线安装器；需要合并到 `main` 并成功部署网页。你可以在 [Actions](https://github.com/WuLinLee/stadia-dongle-esp-2/actions/workflows/release.yml) 查看进度，在 [Releases](https://github.com/WuLinLee/stadia-dongle-esp-2/releases) 下载正式发布的固件。
 
 ## 常见问题
 
-### 烧录器无法初始化
+**刷完后没有出现 Xbox 手柄**
 
-- 确认选择的是开发板对应的 COM 口，不要选择主板自带的 COM1。
-- 尝试按一次 RESET 后重新安装。
-- 仍然失败时，按住 BOOT，再点击 Install。
+- 确认已从 COM/UART 烧录接口换到原生 USB/OTG 接口。
+- 按一次 RESET/RST，等待几秒。
+- 更换确认支持数据传输的 USB 线。
+- 在 Windows 运行 `joy.cpl` 检查，不要只依赖系统通知。
 
-### 刷完后没有出现 Xbox 手柄
+**手柄一直黄灯闪烁，或震动正常但没有输入**
 
-- 确认已经从 COM/UART 口换到 USB/OTG 口。
-- 按一次 RESET，等待几秒。
-- 换一根确认支持数据传输的 USB 线。
-- 运行 `joy.cpl`，不要只依赖 Windows 弹窗。
+在 USB 配置页忘记该手柄，关闭手柄，重新点击“开始配对”，再按住 Stadia + Y，直到页面显示“已就绪”。
 
-### 手柄一直黄灯闪烁
+**找不到 Wi-Fi 热点**
 
-这通常表示配对没有真正完成。忘记旧手柄记录后重新配对，并等待配置页显示“已就绪”。
+这是正常的：Wi-Fi 默认关闭。请先在 USB 配置页手动启动热点；它主要用于 OTA 或 USB 配置不可用时的恢复。
 
-### Steam 能测试震动，但没有任何输入
+**要改按键是否需要重新刷固件？**
 
-USB 通常已经正常，问题多半在 BLE 配对或输入通知。先检查配置页是否显示“已就绪”，以及实时按键和原始报告是否随操作变化。
+不需要。请通过 USB 配置页修改并保存。
 
-### 看不到 `StadiaDongle-XXXX`
+## 开发者资料
 
-这是正常行为。Wi-Fi 默认关闭，请从 USB 配置页手动启动，或使用上面的恢复入口。
-
-### 配置后需要重新烧录吗
-
-不需要。按键映射和 Web GUI 设置会持久保存。
-
-## LED 状态
-
-如果开发板在 GPIO 48 上带有兼容的 RGB LED，可参考：
-
-| 灯效 | 状态 |
-|---|---|
-| 白色呼吸 | 正在启动 |
-| 暗蓝色心跳 | 正在扫描手柄 |
-| 蓝黄交替 | Wi-Fi 热点已开启 |
-| 绿色心跳 | 一个手柄已连接 |
-| 较快绿色心跳 | 两个手柄已连接 |
-| 橙色心跳 | 鼠标模式 |
-| 暗紫色心跳 | 电脑休眠 / USB 挂起 |
-| 红色呼吸 | 固件错误 |
-| 紫黄交替 | 正在 OTA |
-
-开发板上的固定红色电源灯不属于上述状态灯。
-
-## 从源码构建
-
-需要 [ESP-IDF 6.x](https://github.com/espressif/esp-idf)：
-
-```sh
-idf.py set-target esp32s3
-idf.py build
-idf.py -p <串口> flash
-```
-
-生成用于网页安装器的完整镜像：
-
-```sh
-esptool.py --chip esp32s3 merge_bin \
-  -o docs/firmware-merged.bin \
-  --flash_mode dio --flash_freq 80m --flash_size 4MB \
-  0x0 build/bootloader/bootloader.bin \
-  0x8000 build/partition_table/partition-table.bin \
-  0x20000 build/stadia-dongle.bin
-```
-
-更多维护资料：
+普通用户不需要本地编译。代码修改提交到 GitHub 后，可用本页前面的 Actions 链接查看云端测试与编译结果。
 
 - [USB 配置协议](docs/usb-config-protocol.md)
 - [真机验收清单](docs/hardware-test-checklist.md)
 - [产品与界面原则](PRODUCT.md)
+- [GitHub Actions 工作流](.github/workflows/release.yml)
 
 ## 许可证
 
