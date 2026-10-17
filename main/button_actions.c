@@ -1,4 +1,5 @@
 #include "button_actions.h"
+#include "bridge.h"
 
 #include "config_store.h"
 #include "hid_extra.h"
@@ -77,11 +78,48 @@ static uint16_t action_to_consumer(uint8_t action)
     }
 }
 
+static uint32_t action_to_gamepad_button(uint8_t action)
+{
+    switch ((dongle_action_t)action) {
+    case DONGLE_ACTION_GAMEPAD_A: return BRIDGE_GAMEPAD_BUTTON_A;
+    case DONGLE_ACTION_GAMEPAD_B: return BRIDGE_GAMEPAD_BUTTON_B;
+    case DONGLE_ACTION_GAMEPAD_X: return BRIDGE_GAMEPAD_BUTTON_X;
+    case DONGLE_ACTION_GAMEPAD_Y: return BRIDGE_GAMEPAD_BUTTON_Y;
+    case DONGLE_ACTION_GAMEPAD_LB: return BRIDGE_GAMEPAD_BUTTON_LB;
+    case DONGLE_ACTION_GAMEPAD_RB: return BRIDGE_GAMEPAD_BUTTON_RB;
+    case DONGLE_ACTION_GAMEPAD_START: return BRIDGE_GAMEPAD_BUTTON_START;
+    case DONGLE_ACTION_GAMEPAD_BACK: return BRIDGE_GAMEPAD_BUTTON_BACK;
+    case DONGLE_ACTION_GAMEPAD_L3: return BRIDGE_GAMEPAD_BUTTON_LS;
+    case DONGLE_ACTION_GAMEPAD_R3: return BRIDGE_GAMEPAD_BUTTON_RS;
+    case DONGLE_ACTION_GAMEPAD_GUIDE: return BRIDGE_GAMEPAD_BUTTON_GUIDE;
+    case DONGLE_ACTION_GAMEPAD_DPAD_UP: return BRIDGE_GAMEPAD_BUTTON_DPAD_UP;
+    case DONGLE_ACTION_GAMEPAD_DPAD_DOWN: return BRIDGE_GAMEPAD_BUTTON_DPAD_DOWN;
+    case DONGLE_ACTION_GAMEPAD_DPAD_LEFT: return BRIDGE_GAMEPAD_BUTTON_DPAD_LEFT;
+    case DONGLE_ACTION_GAMEPAD_DPAD_RIGHT: return BRIDGE_GAMEPAD_BUTTON_DPAD_RIGHT;
+    case DONGLE_ACTION_GAMEPAD_LT: return BRIDGE_GAMEPAD_BUTTON_LT;
+    case DONGLE_ACTION_GAMEPAD_RT: return BRIDGE_GAMEPAD_BUTTON_RT;
+    default:
+        return 0;
+    }
+}
+
 static void run_action(uint8_t gamepad_index, uint8_t action)
 {
     uint8_t key = action_to_key(action);
     uint16_t consumer = action_to_consumer(action);
-    if (key) {
+    uint32_t gamepad_button = action_to_gamepad_button(action);
+    if (gamepad_button) {
+        if (mouse_mode_is_active(gamepad_index)) {
+            ESP_LOGI(TAG, "usb %u skipping XInput action %s while in mouse mode",
+                     gamepad_index, config_store_action_name(action));
+            return;
+        }
+        bridge_set_virtual_gamepad_button(gamepad_index, gamepad_button, true);
+        vTaskDelay(pdMS_TO_TICKS(20));
+        bridge_set_virtual_gamepad_button(gamepad_index, gamepad_button, false);
+        ESP_LOGI(TAG, "usb %u XInput action %s pulsed", gamepad_index,
+                 config_store_action_name(action));
+    } else if (key) {
         bool sent = hid_extra_send_key_press(0, key);
         vTaskDelay(pdMS_TO_TICKS(20));
         hid_extra_send_key_release();

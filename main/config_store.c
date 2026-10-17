@@ -10,7 +10,7 @@
 
 #define CFG_NS "dongle_cfg"
 #define CFG_KEY "config"
-#define CFG_SCHEMA 5
+#define CFG_SCHEMA 6
 
 static const char *TAG = "CFG";
 
@@ -163,6 +163,23 @@ const char *config_store_action_name(uint8_t action)
     case DONGLE_ACTION_CONSUMER_SCAN_NEXT: return "next_track";
     case DONGLE_ACTION_CONSUMER_SCAN_PREV: return "prev_track";
     case DONGLE_ACTION_KEY_F12: return "f12";
+    case DONGLE_ACTION_GAMEPAD_A: return "gamepad_a";
+    case DONGLE_ACTION_GAMEPAD_B: return "gamepad_b";
+    case DONGLE_ACTION_GAMEPAD_X: return "gamepad_x";
+    case DONGLE_ACTION_GAMEPAD_Y: return "gamepad_y";
+    case DONGLE_ACTION_GAMEPAD_LB: return "gamepad_lb";
+    case DONGLE_ACTION_GAMEPAD_RB: return "gamepad_rb";
+    case DONGLE_ACTION_GAMEPAD_START: return "gamepad_start";
+    case DONGLE_ACTION_GAMEPAD_BACK: return "gamepad_back";
+    case DONGLE_ACTION_GAMEPAD_L3: return "gamepad_l3";
+    case DONGLE_ACTION_GAMEPAD_R3: return "gamepad_r3";
+    case DONGLE_ACTION_GAMEPAD_GUIDE: return "gamepad_guide";
+    case DONGLE_ACTION_GAMEPAD_DPAD_UP: return "gamepad_dpad_up";
+    case DONGLE_ACTION_GAMEPAD_DPAD_DOWN: return "gamepad_dpad_down";
+    case DONGLE_ACTION_GAMEPAD_DPAD_LEFT: return "gamepad_dpad_left";
+    case DONGLE_ACTION_GAMEPAD_DPAD_RIGHT: return "gamepad_dpad_right";
+    case DONGLE_ACTION_GAMEPAD_LT: return "gamepad_lt";
+    case DONGLE_ACTION_GAMEPAD_RT: return "gamepad_rt";
     default: return "none";
     }
 }
@@ -207,5 +224,22 @@ uint8_t config_store_action_from_name(const char *name)
     if (strcmp(name, "next_track") == 0) return DONGLE_ACTION_CONSUMER_SCAN_NEXT;
     if (strcmp(name, "prev_track") == 0) return DONGLE_ACTION_CONSUMER_SCAN_PREV;
     if (strcmp(name, "f12") == 0) return DONGLE_ACTION_KEY_F12;
+    if (strcmp(name, "gamepad_a") == 0) return DONGLE_ACTION_GAMEPAD_A;
+    if (strcmp(name, "gamepad_b") == 0) return DONGLE_ACTION_GAMEPAD_B;
+    if (strcmp(name, "gamepad_x") == 0) return DONGLE_ACTION_GAMEPAD_X;
+    if (strcmp(name, "gamepad_y") == 0) return DONGLE_ACTION_GAMEPAD_Y;
+    if (strcmp(name, "gamepad_lb") == 0) return DONGLE_ACTION_GAMEPAD_LB;
+    if (strcmp(name, "gamepad_rb") == 0) return DONGLE_ACTION_GAMEPAD_RB;
+    if (strcmp(name, "gamepad_start") == 0) return DONGLE_ACTION_GAMEPAD_START;
+    if (strcmp(name, "gamepad_back") == 0) return DONGLE_ACTION_GAMEPAD_BACK;
+    if (strcmp(name, "gamepad_l3") == 0) return DONGLE_ACTION_GAMEPAD_L3;
+    if (strcmp(name, "gamepad_r3") == 0) return DONGLE_ACTION_GAMEPAD_R3;
+    if (strcmp(name, "gamepad_guide") == 0) return DONGLE_ACTION_GAMEPAD_GUIDE;
+    if (strcmp(name, "gamepad_dpad_up") == 0) return DONGLE_ACTION_GAMEPAD_DPAD_UP;
+    if (strcmp(name, "gamepad_dpad_down") == 0) return DONGLE_ACTION_GAMEPAD_DPAD_DOWN;
+    if (strcmp(name, "gamepad_dpad_left") == 0) return DONGLE_ACTION_GAMEPAD_DPAD_LEFT;
+    if (strcmp(name, "gamepad_dpad_right") == 0) return DONGLE_ACTION_GAMEPAD_DPAD_RIGHT;
+    if (strcmp(name, "gamepad_lt") == 0) return DONGLE_ACTION_GAMEPAD_LT;
+    if (strcmp(name, "gamepad_rt") == 0) return DONGLE_ACTION_GAMEPAD_RT;
     return DONGLE_ACTION_NONE;
 }

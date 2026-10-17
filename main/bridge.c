@@ -28,13 +28,21 @@
 
 #include "bridge.h"
 #include <stdio.h>
+#include "freertos/semphr.h"
 #include <string.h>
 
 QueueHandle_t ble_to_usb_queue;
 QueueHandle_t usb_to_ble_queue;
 
+static SemaphoreHandle_t s_report_lock;
+static uint8_t s_base_xbox_report[DONGLE_MAX_CONTROLLERS][DONGLE_XBOX_REPORT_SIZE];
+static bool s_base_xbox_report_valid[DONGLE_MAX_CONTROLLERS];
+static uint32_t s_virtual_buttons[DONGLE_MAX_CONTROLLERS];
+
 void bridge_init(void)
 {
+    s_report_lock = xSemaphoreCreateMutex();
+    configASSERT(s_report_lock != NULL);
     ble_to_usb_queue = xQueueCreate(8 * DONGLE_MAX_CONTROLLERS, sizeof(ble_to_usb_msg_t));
     usb_to_ble_queue = xQueueCreate(4 * DONGLE_MAX_CONTROLLERS, sizeof(usb_to_ble_msg_t));
     configASSERT(ble_to_usb_queue != NULL);
@@ -76,18 +84,90 @@ void stadia_pressed_names(const stadia_controller_state_t *s, char *out, size_t 
     if (s->capture) append_name(out, out_len, "capture");
 }
 
-void bridge_send_neutral(uint8_t gamepad_index)
+static void apply_virtual_buttons(uint8_t gamepad_index, uint8_t *report)
 {
+    uint32_t mask = s_virtual_buttons[gamepad_index];
+
+    if (mask & BRIDGE_GAMEPAD_BUTTON_DPAD_UP)    report[2] |= 1u << 0;
+    if (mask & BRIDGE_GAMEPAD_BUTTON_DPAD_DOWN)  report[2] |= 1u << 1;
+    if (mask & BRIDGE_GAMEPAD_BUTTON_DPAD_LEFT)  report[2] |= 1u << 2;
+    if (mask & BRIDGE_GAMEPAD_BUTTON_DPAD_RIGHT) report[2] |= 1u << 3;
+    if (mask & BRIDGE_GAMEPAD_BUTTON_START)      report[2] |= 1u << 4;
+    if (mask & BRIDGE_GAMEPAD_BUTTON_BACK)       report[2] |= 1u << 5;
+    if (mask & BRIDGE_GAMEPAD_BUTTON_LS)         report[2] |= 1u << 6;
+    if (mask & BRIDGE_GAMEPAD_BUTTON_RS)         report[2] |= 1u << 7;
+
+    if (mask & BRIDGE_GAMEPAD_BUTTON_LB)    report[3] |= 1u << 0;
+    if (mask & BRIDGE_GAMEPAD_BUTTON_RB)    report[3] |= 1u << 1;
+    if (mask & BRIDGE_GAMEPAD_BUTTON_GUIDE) report[3] |= 1u << 2;
+    if (mask & BRIDGE_GAMEPAD_BUTTON_A)     report[3] |= 1u << 4;
+    if (mask & BRIDGE_GAMEPAD_BUTTON_B)     report[3] |= 1u << 5;
+    if (mask & BRIDGE_GAMEPAD_BUTTON_X)     report[3] |= 1u << 6;
+    if (mask & BRIDGE_GAMEPAD_BUTTON_Y)     report[3] |= 1u << 7;
+
+    /* XInput triggers are analog bytes, so a mapped LT/RT action drives 0xFF. */
+    if (mask & BRIDGE_GAMEPAD_BUTTON_LT) report[4] = 0xFF;
+    if (mask & BRIDGE_GAMEPAD_BUTTON_RT) report[5] = 0xFF;
+}
+
+static void enqueue_current_report_locked(uint8_t gamepad_index)
+{
+    if (!s_base_xbox_report_valid[gamepad_index]) return;
+
     ble_to_usb_msg_t msg = {
         .gamepad_index = gamepad_index,
-        .data = {0x00, 0x14},
         .len = DONGLE_XBOX_REPORT_SIZE,
     };
+    memcpy(msg.data, s_base_xbox_report[gamepad_index], DONGLE_XBOX_REPORT_SIZE);
+    apply_virtual_buttons(gamepad_index, msg.data);
+
     if (xQueueSendToBack(ble_to_usb_queue, &msg, 0) != pdTRUE) {
-        ble_to_usb_msg_t dummy;
-        xQueueReceive(ble_to_usb_queue, &dummy, 0);
+        ble_to_usb_msg_t discarded;
+        xQueueReceive(ble_to_usb_queue, &discarded, 0);
         xQueueSendToBack(ble_to_usb_queue, &msg, 0);
     }
+}
+
+void bridge_send_xbox_report(uint8_t gamepad_index, const uint8_t *report, size_t len)
+{
+    if (!report || gamepad_index >= DONGLE_MAX_CONTROLLERS) return;
+    if (len > DONGLE_XBOX_REPORT_SIZE) len = DONGLE_XBOX_REPORT_SIZE;
+
+    xSemaphoreTake(s_report_lock, portMAX_DELAY);
+    memset(s_base_xbox_report[gamepad_index], 0, DONGLE_XBOX_REPORT_SIZE);
+    memcpy(s_base_xbox_report[gamepad_index], report, len);
+    s_base_xbox_report[gamepad_index][0] = 0x00;
+    s_base_xbox_report[gamepad_index][1] = DONGLE_XBOX_REPORT_SIZE;
+    s_base_xbox_report_valid[gamepad_index] = true;
+    enqueue_current_report_locked(gamepad_index);
+    xSemaphoreGive(s_report_lock);
+}
+
+void bridge_set_virtual_gamepad_button(uint8_t gamepad_index, uint32_t button, bool pressed)
+{
+    if (gamepad_index >= DONGLE_MAX_CONTROLLERS || button == 0) return;
+
+    xSemaphoreTake(s_report_lock, portMAX_DELAY);
+    if (pressed) {
+        s_virtual_buttons[gamepad_index] |= button;
+    } else {
+        s_virtual_buttons[gamepad_index] &= ~button;
+    }
+    enqueue_current_report_locked(gamepad_index);
+    xSemaphoreGive(s_report_lock);
+}
+
+void bridge_send_neutral(uint8_t gamepad_index)
+{
+    if (gamepad_index >= DONGLE_MAX_CONTROLLERS) return;
+
+    xSemaphoreTake(s_report_lock, portMAX_DELAY);
+    memset(s_base_xbox_report[gamepad_index], 0, DONGLE_XBOX_REPORT_SIZE);
+    s_base_xbox_report[gamepad_index][1] = DONGLE_XBOX_REPORT_SIZE;
+    s_base_xbox_report_valid[gamepad_index] = true;
+    s_virtual_buttons[gamepad_index] = 0;
+    enqueue_current_report_locked(gamepad_index);
+    xSemaphoreGive(s_report_lock);
 }
 
 // Stadia hat-switch (0–7) → Xbox 360 d-pad bitmask (bits 0=Up,1=Down,2=Left,3=Right)

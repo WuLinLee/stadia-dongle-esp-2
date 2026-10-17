@@ -903,28 +903,10 @@ static int gap_event_fn(struct ble_gap_event *event, void *arg)
         button_actions_on_state(slot->usb_gamepad_index, &state);
 
         if (mouse_mode_is_active(slot->usb_gamepad_index)) {
-            ble_to_usb_msg_t neutral = {
-                .gamepad_index = slot->usb_gamepad_index,
-                .data = {0x00, 0x14},
-                .len = DONGLE_XBOX_REPORT_SIZE,
-            };
-            if (xQueueSendToBack(ble_to_usb_queue, &neutral, 0) != pdTRUE) {
-                ble_to_usb_msg_t dummy;
-                xQueueReceive(ble_to_usb_queue, &dummy, 0);
-                xQueueSendToBack(ble_to_usb_queue, &neutral, 0);
-            }
+            bridge_send_neutral(slot->usb_gamepad_index);
             mouse_mode_cache_state(slot->usb_gamepad_index, &state);
         } else {
-            ble_to_usb_msg_t msg = {
-                .gamepad_index = slot->usb_gamepad_index,
-                .len = DONGLE_XBOX_REPORT_SIZE,
-            };
-            memcpy(msg.data, xbox, sizeof(xbox));
-            if (xQueueSendToBack(ble_to_usb_queue, &msg, 0) != pdTRUE) {
-                ble_to_usb_msg_t dummy;
-                xQueueReceive(ble_to_usb_queue, &dummy, 0);
-                xQueueSendToBack(ble_to_usb_queue, &msg, 0);
-            }
+            bridge_send_xbox_report(slot->usb_gamepad_index, xbox, sizeof(xbox));
         }
         break;
     }
