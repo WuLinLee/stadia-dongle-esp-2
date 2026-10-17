@@ -182,6 +182,12 @@
 | `.github/workflows/release.yml` | GitHub 云端自动测试、编译、Release 和 Pages 部署 |
 | `tests/firmware_contract.test.mjs` | 自动合约测试 |
 
+## 维护者 / 下一个 AI：接手开发
+
+如果要继续修改固件、WebHID 协议、按键映射或发布流程，请先阅读 [`AI_HANDOFF.md`](AI_HANDOFF.md)。其中记录了模块职责、动作 ID 跨语言一致性、震动处理约束、CI / Pages 发布条件、常见故障和推荐的接手顺序。
+
+开始开发前，请重新确认 [PR #1](https://github.com/WuLinLee/stadia-dongle-esp-2/pull/1) 与 [最新 Actions 运行](https://github.com/WuLinLee/stadia-dongle-esp-2/actions/workflows/release.yml)。网页是否可用必须以成功的 Pages 部署和实际 URL 检查为准；自动测试或固件编译通过不代表网页已经上线，也不代表真机验证已通过。
+
 ## 开发者：本地构建（可选）
 
 普通用户不需要本地构建。若需在电脑上开发，安装 [ESP-IDF](https://github.com/espressif/esp-idf) 6.0 并准备 Node.js，然后运行：
