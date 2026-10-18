@@ -230,7 +230,7 @@ Actions Artifact 通常只保留 7 天；Release 附件用于长期保存正式�
 | [`docs/hardware-test-checklist.md`](docs/hardware-test-checklist.md) | 真机测试者 | 可逐项执行的硬件回归清单，并记录哪些测试确实完成 |
 | [`.github/workflows/release.yml`](.github/workflows/release.yml) | CI/发布维护者 | 实际自动测试、固件构建、Release 与 Pages 部署流程（这是工作流文件，不是说明文档） |
 
-**PR #4 说明：**请继续阅读下方“维护者 / 下一个 AI：接手开发”里的交接记录。PR #4 已关闭且未合并；README 内容曾单独复制到 `main`，这不代表分支上的 `AI_HANDOFF.md` 或 `PRODUCT.md` 也已进入 `main`。比较它们时应逐文件审查，不要整支合并。
+**PR #4 说明：**请继续阅读下方“维护者 / 下一个 AI：接手开发”里的交接记录。PR #4 已关闭且未合并；README 内容先被单独复制到 `main`，之后又逐文件审查并单独移植了有用的 `AI_HANDOFF.md` 与 `PRODUCT.md` 文档更新（见这两个文件的提交历史）。这些内容不是通过合并 PR #4 进入 main 的。不要重新合并旧分支；以当前 `main` 文件为准。
 
 ## 项目文件在哪里？
 
@@ -255,7 +255,7 @@ Actions Artifact 通常只保留 7 天；Release 附件用于长期保存正式�
 > **PR #4 交接记录（请先读）**
 >
 > - [PR #4：docs: refresh release status, tests, and maintainer handoff](https://github.com/WuLinLee/stadia-dongle-esp-2/pull/4) 已**关闭且未合并**。不要把它描述成已合并的 PR，也不要为了“清理历史”重新打开或合并它。
-> - PR #4 的分支是 [`codex/docs-current-release-and-tests`](https://github.com/WuLinLee/stadia-dongle-esp-2/tree/codex/docs-current-release-and-tests)，改动涉及 `README.md`、`AI_HANDOFF.md`、`PRODUCT.md`。为保留有用的用户说明，PR #4 的 README 内容后来被单独复制到 `main`；**这不代表 PR #4 中另外两个文件的修改也进入了 main**。
+> - PR #4 的分支是 [`codex/docs-current-release-and-tests`](https://github.com/WuLinLee/stadia-dongle-esp-2/tree/codex/docs-current-release-and-tests)，改动涉及 `README.md`、`AI_HANDOFF.md`、`PRODUCT.md`。为保留有用的用户说明，PR #4 的 README 内容后来被单独复制到 `main`；另外两个文件当时并未随之自动进入 main，之后已经过逐文件审查，将有用更新分别移植到当前 `main`（`AI_HANDOFF.md` 与 `PRODUCT.md`）。这不代表 PR #4 本身已合并。
 > - 接手时先比较 `main` 与该分支的 `AI_HANDOFF.md`、`PRODUCT.md`，逐项判断是否仍准确、是否有价值，再决定是否单独移植；不要整支合并，也不要覆盖 main 上后来更新的内容。
 > - PR #4 中记录的 Release 版本、Actions run、SHA 和 OTA 差异属于当时核对到的状态。尤其 OTA 打包问题应重新检查当前 workflow、分区表、OTA handler 和线上页面，不能只凭这段历史文字断定当前仍然存在或已经修复。
 > - 用户已报告：**通过网页刷机后，设备能正常工作，按键与震动正常**。这是一条用户反馈，不是完整的冷启动、OTA、回滚或长期稳定性测试结果。不要因为已能正常使用就贸然改固件；若计划修改刷写/OTA 流程，先说明风险并准备可恢复方案。
