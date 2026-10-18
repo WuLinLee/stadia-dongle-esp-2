@@ -149,7 +149,7 @@ Actions Artifact 通常只保留 7 天；Release 附件用于长期保存正式�
 3. **云端编译：**GitHub 的 Ubuntu 服务器使用 ESP-IDF 6.0、目标 `esp32s3` 执行 `idf.py build`。
 4. **生成完整镜像：**当前 workflow 将 bootloader、分区表和应用镜像合并成 `firmware-merged.bin`。注意：与上游相比，目前还没有把 `build/ota_data_initial.bin` 合入，也没有生成 `stadia-dongle-ota.bin`；详见[上游差异与待检查项](#与上游网页刷写器--固件有什么区别)。
 5. **保存结果：**上传名为 `firmware` 的 Actions Artifact，供开发者下载；Artifact 通常保留 7 天。
-6. **正式发布：**每次 `main` 分支构建成功后都会自动生成唯一版本标签（UTC 日期 + GitHub Actions run number，标签格式为 `vYYYY.MM.DD.RUN_NUMBER`（日期使用 UTC；实际版本号以 [Latest Release](https://github.com/WuLinLee/stadia-dongle-esp-2/releases/latest) 为准）），创建/更新 GitHub Release，并上传 `firmware-merged.bin`；该 Release 会标记为 Latest。推送 `v*` 标签时则沿用该标签发布。
+6. **正式发布：**每次 `main` 分支构建成功后都会自动生成唯一版本标签（标签格式为 `vYYYY.MM.DD.RUN_NUMBER`，UTC 日期与 Actions run number 共同决定；实际版本号以 [Latest Release](https://github.com/WuLinLee/stadia-dongle-esp-2/releases/latest) 为准），创建/更新 GitHub Release，并上传 `firmware-merged.bin`；该 Release 会标记为 Latest。推送 `v*` 标签时则沿用该标签发布。
 7. **网页更新：**只有在固件构建成功且 ref 是 `main` 或 `v*` 标签时，Pages job 才会把本次构建的完整镜像、刷写页和 USB 配置页部署到 GitHub Pages。`codex/**` 和 Pull Request 不会覆盖正式网页。
 
 若编译失败，请打开 [Actions 页面](https://github.com/WuLinLee/stadia-dongle-esp-2/actions/workflows/release.yml)，进入失败任务查看具体步骤。重点区分 `Test USB configuration protocol`（自动测试）与 `Build with ESP-IDF`（固件编译）。不要把以前留存的固件当成失败任务产生的新版本。
@@ -274,7 +274,6 @@ npm test
 若需在电脑上开发，安装 [ESP-IDF](https://github.com/espressif/esp-idf) 6.0 并准备 Node.js，然后运行：
 
 ```sh
-npm test
 idf.py set-target esp32s3
 idf.py build
 idf.py -p <串口> flash
