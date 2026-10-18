@@ -17,7 +17,7 @@
 ## 仓库与当前工作状态
 
 - 仓库：<https://github.com/WuLinLee/stadia-dongle-esp-2>
-- 主分支：`main`。PR #1 于 2026-10-17 合并（`f755823735f31b7625a358b5650860d992f3ba41`）；PR #2（Assistant/Capture 按住映射和 5 秒鼠标模式组合键）于 2026-10-18 合并，合并提交为 `38dedfebb64edd519dd7244ac3d44acfd4e2a600`。PR #2 后又补充了 README 与 USB 协议文档，实际最新 `main` SHA 和 Pages 部署状态仍须通过 Actions 实时核对。开发分支 `codex/rumble-write-reliability` 是历史工作分支，不要假设它仍是待合并状态。
+- 主分支：`main`。PR #1 于 2026-10-17 合并（`f755823735f31b7625a358b5650860d992f3ba41`）；PR #2（Assistant/Capture 按住映射；鼠标组合键最初为 5 秒，现为 2 秒）于 2026-10-18 合并，合并提交为 `38dedfebb64edd519dd7244ac3d44acfd4e2a600`。PR #2 后又补充了 README 与 USB 协议文档，实际最新 `main` SHA 和 Pages 部署状态仍须通过 Actions 实时核对。开发分支 `codex/rumble-write-reliability` 是历史工作分支，不要假设它仍是待合并状态。
 - 历史 PR：[#1 — fix: improve Stadia rumble and add XInput button mapping](https://github.com/WuLinLee/stadia-dongle-esp-2/pull/1)
 - CI 实时状态：<https://github.com/WuLinLee/stadia-dongle-esp-2/actions/workflows/release.yml>
 - 工作流：[`.github/workflows/release.yml`](.github/workflows/release.yml)
@@ -61,11 +61,11 @@
 
 | 文件 | 责任与修改时的注意事项 |
 |---|---|
-| `main/ble_central.c` | BLE 连接、手柄连接槽位、震动输出 GATT 写入与重试。震动写入失败/过载时重点从这里排查。 |
+| `main/ble_central.c` | BLE 连接、手柄连接槽位、震动输出 GATT 写入；当前沿用直接上游的基本写入流程，不自动重试。 |
 | `main/xbox_dev.c` | USB Xbox 兼容接口及主机输出报告；解析游戏发来的马达强度。 |
 | `main/main.c` | 固件任务、队列及不同 USB/BLE 子系统的协作。 |
 | `main/bridge.c` | Stadia 输入到 Xbox/XInput 报告的转换；保存基础报告并叠加映射生成的虚拟按钮。 |
-| `main/button_actions.c` | Assistant/Capture 物理按下/松开状态、映射输出与 5 秒鼠标模式组合键。 |
+| `main/button_actions.c` | Assistant/Capture 物理按下/松开状态、映射输出与 2 秒鼠标模式组合键。 |
 | `main/config_store.c`, `main/config_store.h` | 动作 ID/名称、默认配置和 NVS 持久化；注意 schema 与旧配置兼容。 |
 | `main/usb_config_protocol.c`, `main/usb_config_protocol.h` | 固件端 USB 配置命令、状态与协议定义。 |
 | `main/webhid_transport.js` | 浏览器 WebHID 传输、命令号、动作名称与能力位。 |
@@ -101,16 +101,16 @@
 
 ### 震动
 
-- Xbox 的 8 位强度使用 `n × 257` 扩展为 Stadia 所需 16 位强度（覆盖 0–65535）。
-- 当前代码采用串行 BLE 输出写入、失败退避重试，以及优先发送每个手柄最新的震动目标，以避免旧更新长期排队或停止震动的零值被挤掉。
-- 保留每个连接手柄的独立状态；项目架构最多处理两个手柄。
+- 震动报告格式遵循直接上游：`main/xbox_dev.c` 将大/小马达强度分别打包为 `{0x00, large, 0x00, small}`；不使用 `n × 257` 换算。
+- `main/ble_central.c` 使用基本的 BLE GATT 写入流程；写入失败会记录错误，但不自动重试，也没有额外的最新目标排队/在途 payload 状态管理。
+- 震动仍按手柄槽位分别路由；项目架构最多处理两个手柄。故障排查时应实测强度变化、停止报告和双手柄并发，不要把“有错误日志”当作故障自动恢复。
 - 不要声称高负载震动问题已被彻底解决，直到真机和实际游戏回归完成。需要特别观察停止震动的零值、快速强弱变化、双手柄并发和 BLE 写入失败日志。
 
 ## 开源参考：优先适配，不要重新造轮子
 
 - [danzig666/stadia-dongle-esp](https://github.com/danzig666/stadia-dongle-esp)：本仓库的基础 fork；保持现有 ESP32-S3 / BLE / USB 架构。
-- [Scalee/stadia-dongle 的震动可靠性修复](https://github.com/Scalee/stadia-dongle/commit/d92ac6d3e2b7bd07d716940a5e160aa1a215d655)：参考失败重试、写入数据快照、合并过期震动目标、跳过重复写入等思路。不要假设其代码可不经适配直接替换当前多手柄结构。
-- [Joypad OS Stadia BLE driver](https://github.com/joypad-ai/joypad-os/blob/main/src/bt/bthid/devices/vendors/google/stadia_bt.c)：参考 Stadia BLE 报告和 16 位马达强度换算。不要假设 Joypad OS 的预编译固件可直接用于所有 ESP32-S3 板型。
+- [Scalee/stadia-dongle 的震动可靠性修复](https://github.com/Scalee/stadia-dongle/commit/d92ac6d3e2b7bd07d716940a5e160aa1a215d655)：作为失败重试、在途数据保护和最新目标管理的备选参考；当前版本没有采用这些额外机制。
+- [Joypad OS Stadia BLE driver](https://github.com/joypad-ai/joypad-os/blob/main/src/bt/bthid/devices/vendors/google/stadia_bt.c)：用于对照 Stadia BLE 报告；当前本项目不采用其中的 `n × 257` 强度换算。不要假设 Joypad OS 的预编译固件可直接用于所有 ESP32-S3 板型。
 - [ESP-IDF](https://github.com/espressif/esp-idf)：当前 CI 使用 ESP-IDF 6.0。
 - [espressif/esp-idf-ci-action](https://github.com/espressif/esp-idf-ci-action)：在 GitHub Actions 中构建。
 - [ESP Web Tools](https://github.com/esphome/esp-web-tools)：浏览器在线刷机按钮及 manifest 工作流。
@@ -120,7 +120,7 @@
 比较对象是 [danzig666/stadia-dongle-esp 的 main](https://github.com/danzig666/stadia-dongle-esp)，不是 Scalee 上游仓库中的任意历史提交。在线刷入页面沿用相同的 ESP Web Tools + manifest 机制，manifest 把完整 `firmware-merged.bin` 以偏移 `0x0` 写入；但两个仓库的固件由各自源码构建，二进制不应视为同一文件。
 
 已确认的功能差异：
-- 本仓库改进了 BLE 震动输出路径：串行写入、失败退避重试、保护在途 payload，并优先处理最新目标；震动 8 位强度按 `n * 257` 扩展为 16 位。效果仍要真机验证。
+- 本仓库当前震动输出路径恢复为直接上游的基本 GATT 写入方式和报告字节布局；不自动重试写入失败，也不使用 `n × 257` 强度换算。真实手感和停止震动的可靠性仍需真机验证。
 - 本仓库将 Assistant/Capture 改为每键单动作的按下/松开映射；NVS schema 7 迁移会清除旧长按动作。
 - 本仓库主要面向中文用户，补充 USB WebHID 协议合约测试与维护交接文档。
 - 原有双手柄、鼠标模式、Wi-Fi Web UI、USB 配置等能力不少是继承基础工程，不要把它们全都描述成本仓库新功能。
@@ -207,7 +207,7 @@ CI 使用 ESP-IDF 6.0、目标 `esp32s3`，执行 `idf.py build` 并用 esptool 
 - `main/index.html`、`main/webhid_transport.js` 和 `main/web_server.c` 使用 `assistant_action` / `capture_action` 两个字段；默认分别为 F14 / F12。不应再暴露短按、长按下拉框或长按时间字段。
 - `main/button_actions.c` 在物理按下时启动映射动作，在物理松开时释放动作。XInput 虚拟按钮使用引用计数，避免两个映射指向同一按钮时其中一个松开就错误释放另一个。
 - `main/hid_extra.c` 保存每个额外按键的键盘/媒体键状态，并持续发送报告直到状态变化。键盘报告合并同时按下的按键；Consumer Control 报告可容纳四个 usage。
-- Assistant 与 Capture 同时、连续按住满 5 秒才切换鼠标模式；不足 5 秒松开不应触发，组合键期间不输出各自独立映射。
+- Assistant 与 Capture 同时、连续按住满 2 秒才切换鼠标模式；不足 2 秒松开不应触发，组合键期间不输出各自独立映射。用于启动 Wi-Fi 设置界面的 Stadia + Options + Menu 组合键仍是独立的 5 秒计时。
 - BLE 断连会排队发送全零控制器状态，必须使任何 held mapping 都释放。USB bus reset 不应造成键盘或媒体键一直卡住。
 - `bridge_send_neutral()` 用于断连和鼠标模式。中立报告期间要抑制 XInput 虚拟按钮输出，但保留逻辑按住状态；退出鼠标模式后，仍按住的映射应随正常 XInput 报告恢复。
 - NVS blob 的原有字段布局保留，`CFG_SCHEMA` 为 7。迁移时保留旧配置中的 Assistant/Capture 原短按动作作为新映射，并清空旧长按动作；不要随意重排 `dongle_action_t` 枚举。
@@ -215,3 +215,9 @@ CI 使用 ESP-IDF 6.0、目标 `esp32s3`，执行 `idf.py build` 并用 esptool 
 
 验证顺序：先运行 `npm test`，再等待 `.github/workflows/release.yml` 的 ESP-IDF 构建成功，最后按 `docs/hardware-test-checklist.md` 实机测试按住/松开、断连释放、鼠标模式切换前后状态、双手柄与震动。CI 构建通过不等于已完成真机验收。
 
+
+## 最新调整：鼠标组合键 2 秒与震动路径回归（2026-10-18）
+
+- 鼠标模式只需 Assistant + Capture 连续同时按住 2 秒；任一键提前松开都会重置计时。另一个用于开启设置界面的三键组合仍保持 5 秒。
+- 震动行为回归直接上游的基本写入方式：main/xbox_dev.c 采用 {0x00, large, 0x00, small} 打包，main/ble_central.c 不做额外自动重试或最新目标排队。不要在文档中描述这些已经撤回的机制。
+- 已同步更新 README、配置页提示、USB 协议说明、硬件测试清单和合约测试。自动测试 / CI 与真机震动手感仍须分别验证。
