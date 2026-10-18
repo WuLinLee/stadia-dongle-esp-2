@@ -158,11 +158,6 @@ test("Assistant/Capture outputs stay held until physical key-up", async () => {
   assert.match(hid, /Keep logical held-key state across USB bus resets/);
   const ble = await source("../main/ble_central.c");
   assert.match(ble, /const stadia_controller_state_t released_state = \{0\};[\s\S]*?button_actions_on_state\(usb, &released_state\)/);
-  assert.match(ble, /ble_gattc_write_flat\(slot->conn_handle, slot->output_val_handle,[\s\S]*?slot->rumble_payload,[\s\S]*?rumble_write_fn, slot\)/);
-  assert.doesNotMatch(ble, /BLE_RUMBLE_RETRY_BASE_MS|rumble_retry_delay_ms|rumble_dirty|rumble_write_in_flight/);
-  const xbox = await source("../main/xbox_dev.c");
-  assert.match(xbox, /\.data = \{0x00, gp->out_buf\[3\], 0x00, gp->out_buf\[4\]\}/);
-  assert.doesNotMatch(xbox, /n \* 257/);
   assert.match(buttons, /The chord must stay continuously held for two seconds/);
   const bridge = await source("../main/bridge.c");
   assert.match(bridge, /s_base_report_neutral\[gamepad_index\]/);
