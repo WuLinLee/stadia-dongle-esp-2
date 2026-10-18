@@ -46,7 +46,7 @@
 1. 在 Windows 游戏控制器测试页确认 A/B/X/Y、方向键、摇杆和扳机正常。
 2. 在支持 XInput 震动的游戏或测试程序中确认双马达震动仍能传到 Stadia 手柄。
 3. 在《Silksong》中重复冲刺后停止操作，确认震动会及时停止；在《A Hat in Time》中连续旋转帽子选择轮盘，确认强弱变化和节奏仍可分辨。
-4. 如出现持续震动或强度被锁定，保存 ESP32 串口日志，重点检查 `rumble write start failed`、`rumble write completion failed` 与 USB `rumble out large=... small=...` 记录；同时确认游戏确实发出了零强度停止报告。
+4. 如出现持续震动或强度被锁定，保存 ESP32 串口日志，检查 `rumble write start failed`、`rumble write completion failed` 与 USB `rumble out large=... small=...` 记录，并确认游戏发出了零强度停止报告。当前震动路径不自动重试失败的写入。
 
 ### Assistant/Capture 按下与松开
 
@@ -54,7 +54,7 @@
 2. 临时将 Assistant 映射为方向键或空格，确认主机在按住期间持续识别按下状态，松开后释放；再测试一个 `gamepad_*` 映射。
 3. 映射到方向键或 XInput 按钮后，在按住期间关闭 Stadia 手柄，确认断连能释放主机的按键，不留下卡键。
 4. 将 Assistant 映射到 XInput A，按住期间切换鼠标模式再退出，确认鼠标模式下 XInput 报告始终中立；如果 Assistant 仍按住，退出鼠标模式后映射状态应恢复，松开后 A 释放。
-5. 同时按住 Assistant + Capture 满 5 秒，确认鼠标模式切换；少于 5 秒松开时不应切换。组合被识别时应释放各自独立映射；若两个物理按键先后到达，先按下的映射也必须在识别组合后立即释放。
+5. 同时按住 Assistant + Capture 满 2 秒，确认鼠标模式切换；少于 2 秒松开时不应切换。组合被识别时应释放各自独立映射；若两个物理按键先后到达，先按下的映射也必须在识别组合后立即释放。
 6. 如需 OTA，连接 `StadiaDongle-XXXX` 并打开 `http://192.168.4.1`，确认上传入口仍可用。
 
 ## 失败时需要保存的信息
