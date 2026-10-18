@@ -124,7 +124,7 @@
 
 当前震动路径恢复为直接上游的基本写入方式：写入失败会记录日志，不会自动退避重试。这样减少了新增的处理逻辑，但也意味着失败的震动或停止指令不会由这套逻辑自动补发；真实效果仍需硬件测试。
 
-### 3. [Joypad OS](https://github.com/joypad-ai/joypad-os) — Stadia BLE 报告和强度换算
+### 3. [Joypad OS](https://github.com/joypad-ai/joypad-os) — Stadia BLE 报告格式参考
 
 参考了 Joypad OS 的 [Stadia BLE 驱动](https://github.com/joypad-ai/joypad-os/blob/main/src/bt/bthid/devices/vendors/google/stadia_bt.c)，用于对照 Stadia BLE 双马达输出报告。当前本项目的强度字节布局刻意恢复为直接上游的格式，并没有采用 Joypad OS 的 `n × 257` 换算。
 
