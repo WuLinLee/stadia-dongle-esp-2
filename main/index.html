@@ -128,7 +128,7 @@
     <section class="card">
       <h2>鼠标模式</h2>
       <div class="tiles">
-        <div class="tile"><div class="k">开启或关闭</div><div class="v">同时按住 <b>Assistant + Capture</b> 2 秒</div></div>
+        <div class="tile"><div class="k">开启或关闭</div><div class="v">同时按住 <b>Assistant + Capture</b> 5 秒</div></div>
         <div class="tile"><div class="k">震动反馈</div><div class="v">震动 2 次表示开启，震动 3 次表示关闭</div></div>
       </div>
       <p class="muted">鼠标模式开启后，手柄会作为 HID 鼠标工作，游戏手柄输入暂时停用。</p>
@@ -140,13 +140,10 @@
 
     <section class="card">
       <h2>额外按键</h2>
-      <p class="muted">未连接时显示固件默认值；连接后会读取并显示接收器当前保存的映射。</p>
+      <p class="muted">每个额外按键只配置一个动作：按住时持续输出，松开时释放。未连接时显示固件默认值；连接后会读取接收器当前保存的映射。</p>
       <form id="mappingForm">
-        <label for="as">Assistant 短按</label><select data-device data-capability="keymap" id="as"></select>
-        <label for="al">Assistant 长按</label><select data-device data-capability="keymap" id="al"></select>
-        <label for="cs">Capture 短按</label><select data-device data-capability="keymap" id="cs"></select>
-        <label for="cl">Capture 长按</label><select data-device data-capability="keymap" id="cl"></select>
-        <label for="lp">长按判定时间（毫秒）</label><input data-device data-capability="keymap" id="lp" type="number" min="300" max="5000" step="50">
+        <label for="as">Assistant</label><select data-device data-capability="keymap" id="as"></select>
+        <label for="cs">Capture</label><select data-device data-capability="keymap" id="cs"></select>
         <label for="wt">配置热点自动关闭时间（秒）</label><input data-device data-capability="keymap" id="wt" type="number" min="15" max="1800" step="15">
         <div class="check-row"><input data-device data-capability="keymap" id="ds" type="checkbox"><label for="ds">电脑休眠时关闭 Wi-Fi 热点</label></div>
         <div class="row">
@@ -236,19 +233,14 @@ const actionLabels = Object.freeze({
   gamepad_rt: "手柄 RT（右扳机全按）",
 });
 const defaultMapping = Object.freeze({
-  assistant_short: "f14",
-  assistant_long: "none",
-  capture_short: "f12",
-  capture_long: "f15",
-  long_press_ms: 1000,
+  assistant_action: "f14",
+  capture_action: "f12",
   webui_timeout_seconds: 120,
   disable_ap_on_suspend: true,
 });
 const defaultActions = Object.freeze({
-  as: defaultMapping.assistant_short,
-  al: defaultMapping.assistant_long,
-  cs: defaultMapping.capture_short,
-  cl: defaultMapping.capture_long,
+  as: defaultMapping.assistant_action,
+  cs: defaultMapping.capture_action,
 });
 const stateLabels = Object.freeze({
   booting: "启动中",
@@ -612,11 +604,8 @@ async function loadStatus({ forceControllers = false } = {}) {
 }
 
 function applyConfig(mapping) {
-  $("as").value = mapping.assistant_short;
-  $("al").value = mapping.assistant_long;
-  $("cs").value = mapping.capture_short;
-  $("cl").value = mapping.capture_long;
-  $("lp").value = mapping.long_press_ms || 1000;
+  $("as").value = mapping.assistant_action;
+  $("cs").value = mapping.capture_action;
   $("wt").value = mapping.webui_timeout_seconds || 120;
   $("ds").checked = mapping.disable_ap_on_suspend !== false;
 }
@@ -757,11 +746,8 @@ $("mappingForm").addEventListener("submit", (event) => {
   const button = event.submitter;
   clicked(button, "正在保存…", async () => {
     const body = new URLSearchParams({
-      assistant_short: $("as").value,
-      assistant_long: $("al").value,
-      capture_short: $("cs").value,
-      capture_long: $("cl").value,
-      long_press_ms: $("lp").value,
+      assistant_action: $("as").value,
+      capture_action: $("cs").value,
       webui_timeout_seconds: $("wt").value,
       disable_ap_on_suspend: $("ds").checked ? "on" : "off",
     });
@@ -837,7 +823,7 @@ $("disconnectUsb").addEventListener("click", async () => {
   setConnection("disconnected", "USB 已断开", "需要配置接收器时，请点击“连接 USB”。");
 });
 
-for (const id of ["as", "al", "cs", "cl"]) {
+for (const id of ["as", "cs"]) {
   $(id).innerHTML = actions.map((action) => {
     const label = actionLabels[action] || action.toUpperCase();
     const suffix = action === defaultActions[id] ? "（固件默认）" : "";
