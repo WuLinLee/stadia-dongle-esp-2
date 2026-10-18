@@ -134,11 +134,10 @@ test("configuration page is Chinese and exposes firmware mapping defaults", asyn
   const index = await source("../main/index.html");
   assert.match(index, /<html lang="zh-CN">/);
   assert.match(index, /<h2>额外按键<\/h2>/);
-  assert.match(index, /assistant_short:\s*"f14"/);
-  assert.match(index, /assistant_long:\s*"none"/);
-  assert.match(index, /capture_short:\s*"f12"/);
-  assert.match(index, /capture_long:\s*"f15"/);
-  assert.match(index, /long_press_ms:\s*1000/);
+  assert.match(index, /assistant_action:\s*"f14"/);
+  assert.match(index, /capture_action:\s*"f12"/);
+  assert.doesNotMatch(index, /assistant_short|assistant_long|capture_short|capture_long|long_press_ms/);
+  assert.match(index, /Assistant \+ Capture<\/b> 5 秒/);
   assert.match(index, /webui_timeout_seconds:\s*120/);
   assert.match(index, /id="restoreDefaults"/);
   assert.match(index, /applyConfig\(defaultMapping\)/);
@@ -146,12 +145,24 @@ test("configuration page is Chinese and exposes firmware mapping defaults", asyn
   assert.doesNotMatch(index, /"start_webui"/);
 });
 
+test("Assistant/Capture outputs stay held until physical key-up", async () => {
+  const buttons = await source("../main/button_actions.c");
+  const hid = await source("../main/hid_extra.c");
+  assert.match(buttons, /hid_extra_set_keyboard_slot\(slot, 0, key, pressed\)/);
+  assert.match(buttons, /bridge_set_virtual_gamepad_button\(gamepad_index, gamepad_button, true\)/);
+  assert.match(buttons, /bridge_set_virtual_gamepad_button\(gamepad_index, gamepad_button, false\)/);
+  assert.doesNotMatch(buttons, /vTaskDelay\(pdMS_TO_TICKS\(20\)\)/);
+  assert.match(buttons, /> 5000000/);
+  assert.match(hid, /0x75, 0x10, 0x95, 0x04, 0x81, 0x00/);
+});
+
 test("Wi-Fi AP is opt-in, temporary, and still recoverable", async () => {
   const store = await source("../main/config_store.c");
   const appMain = await source("../main/main.c");
   const webServer = await source("../main/web_server.c");
-  assert.match(store, /CFG_SCHEMA\s+6/);
+  assert.match(store, /CFG_SCHEMA\s+7/);
   assert.match(store, /capture_short_action\s*=\s*DONGLE_ACTION_KEY_F12/);
+  assert.match(store, /capture_long_action\s*=\s*DONGLE_ACTION_NONE/);
   assert.match(store, /webui_auto_start_if_no_bond\s*=\s*false/);
   assert.match(
     store,
