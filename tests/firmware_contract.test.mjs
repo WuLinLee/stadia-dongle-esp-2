@@ -204,7 +204,8 @@ test("F12 is appended compatibly and emits the standard keyboard usage", async (
   const buttons = await source("../main/button_actions.c");
   assert.match(buttons, /DONGLE_ACTION_GAMEPAD_A:\s*return BRIDGE_GAMEPAD_BUTTON_A/);
   assert.match(bridge, /report\[3\] \|= 1u << 4/);
-  assert.match(bridge, /s_virtual_buttons\[gamepad_index\] = 0/);
+  assert.match(bridge, /s_base_report_neutral\[gamepad_index\] = true/);
+  assert.doesNotMatch(bridge, /s_virtual_buttons\[gamepad_index\] = 0/);
 });
 
 test("controller polling preserves interactive nodes and gates capabilities", async () => {
