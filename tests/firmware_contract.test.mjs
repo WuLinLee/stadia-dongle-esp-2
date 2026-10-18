@@ -169,12 +169,12 @@ test("Wi-Fi AP is opt-in, temporary, and still recoverable", async () => {
   const appMain = await source("../main/main.c");
   const webServer = await source("../main/web_server.c");
   assert.match(store, /CFG_SCHEMA\s+7/);
-  assert.match(store, /capture_short_action\s*=\s*DONGLE_ACTION_KEY_F12/);
-  assert.match(store, /capture_long_action\s*=\s*DONGLE_ACTION_NONE/);
+  assert.match(store, /capture_action\s*=\s*DONGLE_ACTION_KEY_F12/);
+  assert.match(store, /legacy_capture_long_action\s*=\s*DONGLE_ACTION_NONE/);
   assert.match(store, /webui_auto_start_if_no_bond\s*=\s*false/);
   assert.match(
     store,
-    /assistant_long_action\s*==\s*DONGLE_ACTION_START_WEBUI[\s\S]*?assistant_long_action\s*=\s*DONGLE_ACTION_NONE/,
+    /legacy_assistant_long_action\s*==\s*DONGLE_ACTION_START_WEBUI[\s\S]*?legacy_assistant_long_action\s*=\s*DONGLE_ACTION_NONE/,
   );
   assert.equal(
     [...appMain.matchAll(/web_server_start\(true\)/g)].length,
