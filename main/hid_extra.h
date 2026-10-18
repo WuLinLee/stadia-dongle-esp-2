@@ -8,10 +8,11 @@
 #define HID_EXTRA_REPORT_DESC_LEN 113
 
 void hid_extra_init(void);
-bool hid_extra_send_key_press(uint8_t modifier, uint8_t keycode);
-bool hid_extra_send_key_release(void);
-bool hid_extra_send_consumer_press(uint16_t usage);
-bool hid_extra_send_consumer_release(void);
+#define HID_EXTRA_HOLD_SLOTS 4
+
+bool hid_extra_set_keyboard_slot(uint8_t slot, uint8_t modifier, uint8_t keycode, bool pressed);
+bool hid_extra_set_consumer_slot(uint8_t slot, uint16_t usage, bool pressed);
+void hid_extra_flush_pending(void);
 bool hid_extra_remote_wakeup(void);
 const uint8_t *hid_extra_report_descriptor(void);
 usbd_class_driver_t const *hid_extra_class_driver(void);

@@ -360,15 +360,10 @@ static esp_err_t keymap_get_handler(httpd_req_t *req)
     config_store_get(&cfg);
     char json[420];
     snprintf(json, sizeof(json),
-             "{\"assistant_short\":\"%s\",\"assistant_long\":\"%s\","
-             "\"capture_short\":\"%s\",\"capture_long\":\"%s\","
-             "\"long_press_ms\":%u,\"webui_timeout_seconds\":%u,"
-             "\"disable_ap_on_suspend\":%s}",
-             config_store_action_name(cfg.assistant_short_action),
-             config_store_action_name(cfg.assistant_long_action),
-             config_store_action_name(cfg.capture_short_action),
-             config_store_action_name(cfg.capture_long_action),
-             cfg.long_press_ms,
+             "{\"assistant_action\":\"%s\",\"capture_action\":\"%s\","
+             "\"webui_timeout_seconds\":%u,\"disable_ap_on_suspend\":%s}",
+             config_store_action_name(cfg.assistant_action),
+             config_store_action_name(cfg.capture_action),
              (unsigned)(cfg.webui_timeout_after_ble_connected_ms / 1000),
              cfg.disable_ap_on_usb_suspend ? "true" : "false");
     return send_text(req, json, "application/json");
@@ -454,25 +449,14 @@ static esp_err_t keymap_post_handler(httpd_req_t *req)
     dongle_config_t cfg;
     config_store_get(&cfg);
     char v[40];
-    if (!parse_action_value(body, "assistant_short", &cfg.assistant_short_action) ||
-        !parse_action_value(body, "assistant_long", &cfg.assistant_long_action) ||
-        !parse_action_value(body, "capture_short", &cfg.capture_short_action) ||
-        !parse_action_value(body, "capture_long", &cfg.capture_long_action)) {
+    if (!parse_action_value(body, "assistant_action", &cfg.assistant_action) ||
+        !parse_action_value(body, "capture_action", &cfg.capture_action)) {
         return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST,
                                    "Missing or invalid button action");
     }
 
-    parse_form_value(body, "long_press_ms", v, sizeof(v));
-    char *end = NULL;
-    unsigned long ms = strtoul(v, &end, 10);
-    if (!v[0] || !end || *end || ms < 300 || ms > 5000) {
-        return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST,
-                                   "Long press must be between 300 and 5000 ms");
-    }
-    cfg.long_press_ms = (uint16_t)ms;
-
     parse_form_value(body, "webui_timeout_seconds", v, sizeof(v));
-    end = NULL;
+    char *end = NULL;
     unsigned long seconds = strtoul(v, &end, 10);
     if (!v[0] || !end || *end || seconds < 15 || seconds > 1800) {
         return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST,

@@ -73,11 +73,8 @@ function statusPayload() {
 
 function configPayload() {
   return encodeConfig({
-    assistant_short: "f14",
-    assistant_long: "start_webui",
-    capture_short: "printscreen",
-    capture_long: "none",
-    long_press_ms: 700,
+    assistant_action: "f14",
+    capture_action: "printscreen",
     webui_timeout_seconds: 120,
     disable_ap_on_suspend: true,
     webui_auto_start_if_no_bond: true,
@@ -255,10 +252,10 @@ test("binary payload parsers match the firmware layout", () => {
 
 
   const config = parseConfig(configPayload());
-  assert.equal(config.assistant_short, "f14");
-  assert.equal(config.assistant_long, "start_webui");
-  assert.equal(config.capture_short, "printscreen");
-  assert.equal(config.long_press_ms, 700);
+  assert.equal(config.assistant_action, "f14");
+  assert.equal(config.capture_action, "printscreen");
+  assert.equal("assistant_short" in config, false);
+  assert.equal("long_press_ms" in config, false);
 
   const controller = parseController(controllerPayload());
   assert.equal(controller.connected, true);
@@ -348,17 +345,14 @@ test("StadiaUsbApi maps the existing HTTP-shaped API onto USB commands", async (
   const saved = await api.request("/api/config/keymap", {
     method: "POST",
     body: new URLSearchParams({
-      assistant_short: "f15",
-      assistant_long: "start_webui",
-      capture_short: "printscreen",
-      capture_long: "none",
-      long_press_ms: "900",
+      assistant_action: "f15",
+      capture_action: "printscreen",
       webui_timeout_seconds: "180",
       disable_ap_on_suspend: "on",
     }),
   });
-  assert.equal(saved.assistant_short, "f15");
-  assert.equal(saved.long_press_ms, 900);
+  assert.equal(saved.assistant_action, "f15");
+  assert.equal(saved.capture_action, "printscreen");
 
   const setRequest = device.requests.find(
     (request) => request[3] === COMMAND.setConfig,

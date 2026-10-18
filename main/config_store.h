@@ -65,11 +65,11 @@ typedef enum {
 
 typedef struct {
     uint32_t schema_version;
-    uint8_t assistant_short_action;
-    uint8_t assistant_long_action;
-    uint8_t capture_short_action;
-    uint8_t capture_long_action;
-    uint16_t long_press_ms;
+    uint8_t assistant_action;
+    uint8_t legacy_assistant_long_action;
+    uint8_t capture_action;
+    uint8_t legacy_capture_long_action;
+    uint16_t legacy_long_press_ms;
     bool webui_auto_start_if_no_bond;
     uint32_t webui_timeout_after_ble_connected_ms;
     bool disable_ap_on_usb_suspend;

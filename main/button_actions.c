@@ -1,6 +1,6 @@
 #include "button_actions.h"
-#include "bridge.h"
 
+#include "bridge.h"
 #include "config_store.h"
 #include "hid_extra.h"
 #include "mouse_mode.h"
@@ -21,12 +21,9 @@ typedef struct {
 } button_action_msg_t;
 
 typedef struct {
-    bool pressed;
-    bool long_sent;
-    int64_t press_time_us;
-    uint8_t gamepad_index;
-    uint8_t short_action;
-    uint8_t long_action;
+    bool physical_pressed;
+    bool output_active;
+    uint8_t action;
 } action_button_state_t;
 
 static uint8_t action_to_key(uint8_t action)
@@ -98,82 +95,116 @@ static uint32_t action_to_gamepad_button(uint8_t action)
     case DONGLE_ACTION_GAMEPAD_DPAD_RIGHT: return BRIDGE_GAMEPAD_BUTTON_DPAD_RIGHT;
     case DONGLE_ACTION_GAMEPAD_LT: return BRIDGE_GAMEPAD_BUTTON_LT;
     case DONGLE_ACTION_GAMEPAD_RT: return BRIDGE_GAMEPAD_BUTTON_RT;
-    default:
-        return 0;
+    default: return 0;
     }
 }
 
-static void run_action(uint8_t gamepad_index, uint8_t action)
+static uint8_t action_slot(uint8_t gamepad_index, bool capture)
+{
+    return (uint8_t)(gamepad_index * 2U + (capture ? 1U : 0U));
+}
+
+static uint8_t s_gamepad_action_refs[DONGLE_MAX_CONTROLLERS][DONGLE_ACTION_GAMEPAD_RT + 1];
+
+static bool set_action_output(uint8_t gamepad_index, uint8_t slot,
+                              uint8_t action, bool pressed)
 {
     uint8_t key = action_to_key(action);
     uint16_t consumer = action_to_consumer(action);
     uint32_t gamepad_button = action_to_gamepad_button(action);
+
+    if (key) return hid_extra_set_keyboard_slot(slot, 0, key, pressed);
+    if (consumer) return hid_extra_set_consumer_slot(slot, consumer, pressed);
+
     if (gamepad_button) {
-        if (mouse_mode_is_active(gamepad_index)) {
+        if (pressed && mouse_mode_is_active(gamepad_index)) {
             ESP_LOGI(TAG, "usb %u skipping XInput action %s while in mouse mode",
                      gamepad_index, config_store_action_name(action));
-            return;
+            return false;
         }
-        bridge_set_virtual_gamepad_button(gamepad_index, gamepad_button, true);
-        vTaskDelay(pdMS_TO_TICKS(20));
-        bridge_set_virtual_gamepad_button(gamepad_index, gamepad_button, false);
-        ESP_LOGI(TAG, "usb %u XInput action %s pulsed", gamepad_index,
-                 config_store_action_name(action));
-    } else if (key) {
-        bool sent = hid_extra_send_key_press(0, key);
-        vTaskDelay(pdMS_TO_TICKS(20));
-        hid_extra_send_key_release();
-        ESP_LOGI(TAG, "usb %u keyboard action %s key=0x%02x sent=%s",
-                 gamepad_index, config_store_action_name(action), key, sent ? "yes" : "no");
-    } else if (consumer) {
-        bool sent = hid_extra_send_consumer_press(consumer);
-        vTaskDelay(pdMS_TO_TICKS(20));
-        hid_extra_send_consumer_release();
-        ESP_LOGI(TAG, "usb %u consumer action %s usage=0x%04x sent=%s",
-                 gamepad_index, config_store_action_name(action), consumer, sent ? "yes" : "no");
-    } else if (action == DONGLE_ACTION_START_WEBUI) {
+        uint8_t *refs = &s_gamepad_action_refs[gamepad_index][action];
+        if (pressed) {
+            if ((*refs)++ == 0) bridge_set_virtual_gamepad_button(gamepad_index, gamepad_button, true);
+        } else if (*refs > 0 && --(*refs) == 0) {
+            bridge_set_virtual_gamepad_button(gamepad_index, gamepad_button, false);
+        }
+        ESP_LOGI(TAG, "usb %u XInput action %s %s", gamepad_index,
+                 config_store_action_name(action), pressed ? "down" : "up");
+        return true;
+    }
+
+    if (pressed && action == DONGLE_ACTION_START_WEBUI) {
         ESP_LOGI(TAG, "usb %u action start_webui", gamepad_index);
         web_server_start(true);
-    } else if (action == DONGLE_ACTION_REMOTE_WAKE_ONLY) {
+        return true;
+    }
+    if (pressed && action == DONGLE_ACTION_REMOTE_WAKE_ONLY) {
         bool sent = hid_extra_remote_wakeup();
-        ESP_LOGI(TAG, "usb %u action remote_wake_only sent=%s", gamepad_index, sent ? "yes" : "no");
-    } else {
-        ESP_LOGI(TAG, "usb %u action none", gamepad_index);
+        ESP_LOGI(TAG, "usb %u action remote_wake_only sent=%s",
+                 gamepad_index, sent ? "yes" : "no");
+        return true;
+    }
+    return false;
+}
+
+static void start_button(action_button_state_t *btn, uint8_t gamepad_index,
+                         uint8_t slot, uint8_t action)
+{
+    btn->physical_pressed = true;
+    btn->action = action;
+    btn->output_active = set_action_output(gamepad_index, slot, action, true);
+}
+
+static void release_button_output(action_button_state_t *btn, uint8_t gamepad_index,
+                                  uint8_t slot)
+{
+    if (btn->output_active) {
+        (void)set_action_output(gamepad_index, slot, btn->action, false);
+        btn->output_active = false;
     }
 }
 
-static void update_action_button(uint8_t gamepad_index, action_button_state_t *btn, bool now_pressed,
-                                 uint8_t short_action, uint8_t long_action)
+static void finish_button(action_button_state_t *btn, uint8_t gamepad_index,
+                          uint8_t slot)
 {
-    int64_t now = esp_timer_get_time();
-    if (now_pressed && !btn->pressed) {
-        btn->pressed = true;
-        btn->long_sent = false;
-        btn->press_time_us = now;
-        btn->gamepad_index = gamepad_index;
-        btn->short_action = short_action;
-        btn->long_action = long_action;
-        ESP_LOGI(TAG, "usb %u action button pressed short=%s long=%s",
-                 gamepad_index, config_store_action_name(short_action),
-                 config_store_action_name(long_action));
-    } else if (now_pressed && btn->pressed) {
-        btn->short_action = short_action;
-        btn->long_action = long_action;
-    } else if (!now_pressed && btn->pressed) {
-        if (!btn->long_sent) run_action(gamepad_index, btn->short_action);
-        btn->pressed = false;
-        btn->long_sent = false;
+    release_button_output(btn, gamepad_index, slot);
+    btn->physical_pressed = false;
+    btn->action = DONGLE_ACTION_NONE;
+}
+
+static void update_single_button(action_button_state_t *btn, uint8_t gamepad_index,
+                                 uint8_t slot, bool now_pressed, uint8_t mapped_action)
+{
+    if (now_pressed && !btn->physical_pressed) {
+        start_button(btn, gamepad_index, slot, mapped_action);
+    } else if (!now_pressed && btn->physical_pressed) {
+        finish_button(btn, gamepad_index, slot);
     }
 }
 
-static void poll_long_action(action_button_state_t *btn, uint16_t long_press_ms)
+static void enter_mouse_combo(action_button_state_t *assistant,
+                              action_button_state_t *capture,
+                              uint8_t gamepad_index, int64_t now,
+                              int64_t *combo_start_us, bool *combo_suppressed,
+                              bool *combo_triggered)
 {
-    if (!btn->pressed || btn->long_sent) return;
-    if (esp_timer_get_time() - btn->press_time_us < (int64_t)long_press_ms * 1000) return;
-    btn->long_sent = true;
-    ESP_LOGI(TAG, "usb %u long press action %s", btn->gamepad_index,
-             config_store_action_name(btn->long_action));
-    run_action(btn->gamepad_index, btn->long_action);
+    release_button_output(assistant, gamepad_index, action_slot(gamepad_index, false));
+    release_button_output(capture, gamepad_index, action_slot(gamepad_index, true));
+    assistant->physical_pressed = true;
+    assistant->action = DONGLE_ACTION_NONE;
+    capture->physical_pressed = true;
+    capture->action = DONGLE_ACTION_NONE;
+    *combo_suppressed = true;
+    *combo_start_us = now;
+    *combo_triggered = false;
+    ESP_LOGI(TAG, "usb %u mouse combo started; extra-button outputs suppressed", gamepad_index);
+}
+
+static void update_suppressed_combo(action_button_state_t *btn, bool now_pressed)
+{
+    btn->physical_pressed = now_pressed;
+    btn->action = DONGLE_ACTION_NONE;
+    btn->output_active = false;
 }
 
 static void button_actions_task(void *arg)
@@ -185,6 +216,7 @@ static void button_actions_task(void *arg)
     action_button_state_t capture[DONGLE_MAX_CONTROLLERS] = {0};
     int64_t setup_combo_start_us[DONGLE_MAX_CONTROLLERS] = {0};
     int64_t mouse_combo_start_us[DONGLE_MAX_CONTROLLERS] = {0};
+    bool mouse_combo_suppressed[DONGLE_MAX_CONTROLLERS] = {0};
     bool mouse_combo_triggered[DONGLE_MAX_CONTROLLERS] = {0};
 
     while (1) {
@@ -194,13 +226,14 @@ static void button_actions_task(void *arg)
         if (xQueueReceive(s_queue, &msg, pdMS_TO_TICKS(25)) == pdTRUE) {
             uint8_t idx = msg.gamepad_index < DONGLE_MAX_CONTROLLERS ? msg.gamepad_index : 0;
             stadia_controller_state_t st = msg.state;
+            int64_t now = esp_timer_get_time();
 
             bool setup_combo = st.stadia && st.options && st.menu;
             if (setup_combo) {
-                if (!setup_combo_start_us[idx]) setup_combo_start_us[idx] = esp_timer_get_time();
-                if (esp_timer_get_time() - setup_combo_start_us[idx] > 5000000) {
+                if (!setup_combo_start_us[idx]) setup_combo_start_us[idx] = now;
+                if (now - setup_combo_start_us[idx] > 5000000) {
                     web_server_start(true);
-                    setup_combo_start_us[idx] = esp_timer_get_time();
+                    setup_combo_start_us[idx] = now;
                 }
             } else {
                 setup_combo_start_us[idx] = 0;
@@ -208,54 +241,49 @@ static void button_actions_task(void *arg)
 
             dongle_status_t status;
             dongle_state_get_status(&status);
-            /* Keep Stadia/Guide available for the controller's own power-off
-               gesture without immediately waking the suspended host. */
             if (status.usb_suspended && (st.a || st.assistant || st.capture)) {
                 hid_extra_remote_wakeup();
             }
 
-            // Process individual buttons first so pressed/released state is tracked.
-            update_action_button(idx, &assistant[idx], st.assistant, cfg.assistant_short_action,
-                                 cfg.assistant_long_action);
-            update_action_button(idx, &capture[idx], st.capture, cfg.capture_short_action,
-                                 cfg.capture_long_action);
-
-            // Track mouse combo: both assistant and capture pressed simultaneously.
-            // Timer is checked in the poll loop below to survive brief BLE glitches.
             bool mouse_combo = st.assistant && st.capture;
-            if (mouse_combo) {
-                if (!mouse_combo_start_us[idx]) {
-                    mouse_combo_start_us[idx] = esp_timer_get_time();
-                    ESP_LOGI(TAG, "usb %u mouse combo started", idx);
-                }
-            } else {
-                // Only reset combo when BOTH buttons are released (prevents
-                // single-frame BLE glitches from cancelling the combo).
-                if (!st.assistant && !st.capture) {
-                    if (mouse_combo_start_us[idx]) {
-                        ESP_LOGI(TAG, "usb %u mouse combo cancelled (both released)", idx);
-                    }
+            if (mouse_combo_suppressed[idx]) {
+                update_suppressed_combo(&assistant[idx], st.assistant);
+                update_suppressed_combo(&capture[idx], st.capture);
+                if (!mouse_combo) {
+                    /* The chord must stay continuously held for all five seconds. */
                     mouse_combo_start_us[idx] = 0;
                     mouse_combo_triggered[idx] = false;
                 }
+                if (!st.assistant && !st.capture) {
+                    mouse_combo_suppressed[idx] = false;
+                    ESP_LOGI(TAG, "usb %u mouse combo released", idx);
+                } else if (mouse_combo && mouse_combo_start_us[idx] == 0 &&
+                           !mouse_combo_triggered[idx]) {
+                    mouse_combo_start_us[idx] = now;
+                }
+            } else if (mouse_combo) {
+                enter_mouse_combo(&assistant[idx], &capture[idx], idx, now,
+                                  &mouse_combo_start_us[idx],
+                                  &mouse_combo_suppressed[idx],
+                                  &mouse_combo_triggered[idx]);
+            } else {
+                update_single_button(&assistant[idx], idx, action_slot(idx, false),
+                                     st.assistant, cfg.assistant_action);
+                update_single_button(&capture[idx], idx, action_slot(idx, true),
+                                     st.capture, cfg.capture_action);
             }
         }
 
         for (uint8_t i = 0; i < DONGLE_MAX_CONTROLLERS; i++) {
-            bool combo_pending = (mouse_combo_start_us[i] != 0 && !mouse_combo_triggered[i]);
-            if (combo_pending) {
-                if (esp_timer_get_time() - mouse_combo_start_us[i] > 2000000) {
-                    mouse_combo_triggered[i] = true;
-                    ESP_LOGI(TAG, "usb %u mouse combo triggering toggle", i);
-                    mouse_mode_toggle(i);
-                } else {
-                    assistant[i].long_sent = true;
-                    capture[i].long_sent = true;
-                }
+            bool combo_pending = mouse_combo_start_us[i] != 0 && !mouse_combo_triggered[i];
+            if (combo_pending && mouse_combo_suppressed[i] &&
+                esp_timer_get_time() - mouse_combo_start_us[i] > 5000000) {
+                mouse_combo_triggered[i] = true;
+                ESP_LOGI(TAG, "usb %u mouse combo held for 5 seconds; toggling mouse mode", i);
+                mouse_mode_toggle(i);
             }
-            poll_long_action(&assistant[i], cfg.long_press_ms);
-            poll_long_action(&capture[i], cfg.long_press_ms);
         }
+        hid_extra_flush_pending();
     }
 }
 

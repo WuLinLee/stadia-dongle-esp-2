@@ -43,7 +43,7 @@ static const uint8_t s_hid_report_desc[HID_EXTRA_REPORT_DESC_LEN] = {
     0xc0,
     0x05, 0x0c, 0x09, 0x01, 0xa1, 0x01, 0x85, RID_CONSUMER,
     0x15, 0x00, 0x26, 0xff, 0x03, 0x19, 0x00, 0x2a,
-    0xff, 0x03, 0x75, 0x10, 0x95, 0x01, 0x81, 0x00,
+    0xff, 0x03, 0x75, 0x10, 0x95, 0x04, 0x81, 0x00,
     0xc0,
     0x06, 0x00, 0xff, 0x09, 0x01, 0xa1, 0x01,
     0x85, USB_CONFIG_REPORT_ID, 0x15, 0x00, 0x26, 0xff, 0x00,
@@ -77,39 +77,91 @@ static bool hid_extra_send_report(uint8_t report_id, const void *report, uint16_
     return ok;
 }
 
-bool hid_extra_send_key_press(uint8_t modifier, uint8_t keycode)
+typedef struct {
+    bool pressed;
+    uint8_t modifier;
+    uint8_t keycode;
+} held_keyboard_slot_t;
+
+typedef struct {
+    bool pressed;
+    uint16_t usage;
+} held_consumer_slot_t;
+
+static held_keyboard_slot_t s_keyboard_slots[HID_EXTRA_HOLD_SLOTS];
+static held_consumer_slot_t s_consumer_slots[HID_EXTRA_HOLD_SLOTS];
+static bool s_keyboard_dirty = true;
+static bool s_consumer_dirty = true;
+
+bool hid_extra_set_keyboard_slot(uint8_t slot, uint8_t modifier,
+                                 uint8_t keycode, bool pressed)
 {
-    if (!hid_extra_ready()) {
-        ESP_LOGW(TAG, "Keyboard report not ready: tud_ready=%d open=%d ep=0x%02x busy=%d",
-                 tud_ready(), s_open, s_ep_in, s_ep_in ? usbd_edpt_busy(s_rhport, s_ep_in) : 0);
-        return false;
+    if (slot >= HID_EXTRA_HOLD_SLOTS || (pressed && keycode == 0)) return false;
+    held_keyboard_slot_t *state = &s_keyboard_slots[slot];
+    if (state->pressed == pressed &&
+        (!pressed || (state->modifier == modifier && state->keycode == keycode))) return true;
+    if (pressed) {
+        state->pressed = true;
+        state->modifier = modifier;
+        state->keycode = keycode;
+    } else {
+        memset(state, 0, sizeof(*state));
     }
-    uint8_t report[8] = { modifier, 0, keycode, 0, 0, 0, 0, 0 };
-    return hid_extra_send_report(RID_KEYBOARD, report, sizeof(report));
+    s_keyboard_dirty = true;
+    return true;
 }
 
-bool hid_extra_send_key_release(void)
+bool hid_extra_set_consumer_slot(uint8_t slot, uint16_t usage, bool pressed)
 {
-    if (!hid_extra_ready()) return false;
-    uint8_t report[8] = {0};
-    return hid_extra_send_report(RID_KEYBOARD, report, sizeof(report));
-}
-
-bool hid_extra_send_consumer_press(uint16_t usage)
-{
-    if (!hid_extra_ready()) {
-        ESP_LOGW(TAG, "Consumer report not ready: tud_ready=%d open=%d ep=0x%02x busy=%d",
-                 tud_ready(), s_open, s_ep_in, s_ep_in ? usbd_edpt_busy(s_rhport, s_ep_in) : 0);
-        return false;
+    if (slot >= HID_EXTRA_HOLD_SLOTS || (pressed && usage == 0)) return false;
+    held_consumer_slot_t *state = &s_consumer_slots[slot];
+    if (state->pressed == pressed && (!pressed || state->usage == usage)) return true;
+    if (pressed) {
+        state->pressed = true;
+        state->usage = usage;
+    } else {
+        memset(state, 0, sizeof(*state));
     }
-    return hid_extra_send_report(RID_CONSUMER, &usage, sizeof(usage));
+    s_consumer_dirty = true;
+    return true;
 }
 
-bool hid_extra_send_consumer_release(void)
+void hid_extra_flush_pending(void)
 {
-    uint16_t usage = 0;
-    if (!hid_extra_ready()) return false;
-    return hid_extra_send_report(RID_CONSUMER, &usage, sizeof(usage));
+    if (!hid_extra_ready()) return;
+
+    if (s_keyboard_dirty) {
+        uint8_t report[8] = {0};
+        uint8_t used = 0;
+        for (uint8_t i = 0; i < HID_EXTRA_HOLD_SLOTS; i++) {
+            const held_keyboard_slot_t *slot = &s_keyboard_slots[i];
+            if (!slot->pressed) continue;
+            report[0] |= slot->modifier;
+            if (!slot->keycode) continue;
+            bool duplicate = false;
+            for (uint8_t j = 0; j < used; j++) {
+                if (report[2 + j] == slot->keycode) duplicate = true;
+            }
+            if (!duplicate && used < 6) report[2 + used++] = slot->keycode;
+        }
+        if (hid_extra_send_report(RID_KEYBOARD, report, sizeof(report))) s_keyboard_dirty = false;
+        return;
+    }
+
+    if (s_consumer_dirty) {
+        uint16_t report[HID_EXTRA_HOLD_SLOTS] = {0};
+        uint8_t used = 0;
+        for (uint8_t i = 0; i < HID_EXTRA_HOLD_SLOTS; i++) {
+            const held_consumer_slot_t *slot = &s_consumer_slots[i];
+            if (!slot->pressed) continue;
+            bool duplicate = false;
+            for (uint8_t j = 0; j < used; j++) {
+                if (report[j] == slot->usage) duplicate = true;
+            }
+            if (!duplicate) report[used++] = slot->usage;
+        }
+        if (hid_extra_send_report(RID_CONSUMER, report, sizeof(report))) s_consumer_dirty = false;
+    }
 }
 
 bool hid_extra_remote_wakeup(void)
@@ -175,12 +227,17 @@ static void hid_extra_driver_init(void)
 {
     s_open = false;
     s_ep_in = 0;
+    s_keyboard_dirty = true;
+    s_consumer_dirty = true;
 }
 
 static bool hid_extra_driver_deinit(void)
 {
     s_open = false;
     s_ep_in = 0;
+    /* Keep logical held-key state across USB unmounts; retry reports on remount. */
+    s_keyboard_dirty = true;
+    s_consumer_dirty = true;
     return true;
 }
 
@@ -189,6 +246,9 @@ static void hid_extra_driver_reset(uint8_t rhport)
     (void)rhport;
     s_open = false;
     s_ep_in = 0;
+    /* Keep logical held-key state across USB bus resets and resend it after re-enumeration. */
+    s_keyboard_dirty = true;
+    s_consumer_dirty = true;
 }
 
 static uint16_t hid_extra_driver_open(uint8_t rhport, tusb_desc_interface_t const *itf_desc,

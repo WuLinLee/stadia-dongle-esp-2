@@ -54,7 +54,7 @@
 - Stadia 手柄通过 BLE 连接到 ESP32-S3。
 - 手柄输入由固件解析并转换为 Xbox 兼容 USB 报告，通过原生 USB/OTG 接口给主机。
 - 主机发来的 XInput 震动输出报告进入固件队列，再作为 Stadia 的 BLE 输出报告发送给对应手柄。
-- Assistant/Capture 的短按、长按动作通过配置触发，可输出键盘/媒体动作或短暂的虚拟 XInput 按钮。
+- Assistant/Capture 各配置一个动作；映射在物理按下时保持输出、松开时释放；XInput 虚拟按钮不覆盖真实输入。
 - USB 配置页通过 WebHID 自定义协议访问设备，查询状态、管理配对和映射配置。映射持久化在 NVS 中。
 
 ### 主要文件索引
@@ -65,7 +65,7 @@
 | `main/xbox_dev.c` | USB Xbox 兼容接口及主机输出报告；解析游戏发来的马达强度。 |
 | `main/main.c` | 固件任务、队列及不同 USB/BLE 子系统的协作。 |
 | `main/bridge.c` | Stadia 输入到 Xbox/XInput 报告的转换；保存基础报告并叠加映射生成的虚拟按钮。 |
-| `main/button_actions.c` | Assistant/Capture 短按、长按动作执行。 |
+| `main/button_actions.c` | Assistant/Capture 物理按下/松开状态、映射输出与 5 秒鼠标模式组合键。 |
 | `main/config_store.c`, `main/config_store.h` | 动作 ID/名称、默认配置和 NVS 持久化；注意 schema 与旧配置兼容。 |
 | `main/usb_config_protocol.c`, `main/usb_config_protocol.h` | 固件端 USB 配置命令、状态与协议定义。 |
 | `main/webhid_transport.js` | 浏览器 WebHID 传输、命令号、动作名称与能力位。 |
@@ -78,9 +78,9 @@
 
 ## 必须保持的一致性与边界
 
-### 动作 ID 和 Web UI 是一份跨语言协议
+### 动作 ID、按下/松开映射与 Web UI 是一份跨语言协议
 
-新增或修改 Assistant/Capture 动作时，至少核对这些位置：
+新增或修改 Assistant/Capture 动作时，至少核对这些位置。配置页每个物理按键只使用一个动作。USB 配置协议仍保持 v1 的 9 字节 payload：偏移 0 是 Assistant 动作，偏移 2 是 Capture 动作；偏移 1、3、4–5 是旧版长按保留字段，新固件忽略它们，浏览器写入兼容值。动作枚举顺序不能重排。
 
 1. 固件动作枚举与动作 ID：`main/config_store.h`。
 2. 固件 ID ↔ 名称转换及默认值：`main/config_store.c`。
@@ -88,14 +88,14 @@
 4. 下拉选项和中文标签：`main/index.html`。
 5. 自动化合约测试：`tests/firmware_contract.test.mjs`。
 
-已有动作枚举值可能已经写进 NVS。**不要随意给旧动作重新编号或重排枚举**；新增动作应以向后兼容方式追加，并确认配置 schema/migration 是否需要变更。当前源码的 `CFG_SCHEMA` 为 6；不要只为了数字更大而增加 schema，也不要在结构或兼容性变化时忘记检查 schema。
+已有动作枚举值可能已经写进 NVS。**不要随意给旧动作重新编号或重排枚举**；新增动作应以向后兼容方式追加。当前源码的 `CFG_SCHEMA` 为 7；NVS blob 原有结构布局保持不变，升级时保留旧短按动作作为新映射，并清除旧长按动作。若配置结构变化，必须重新审查 schema/migration。
 
 ### 虚拟 XInput 按键
 
-新增的 XInput 动作是给 Assistant/Capture 额外按键用的，不等于全部 Stadia 原生按键均可自由重映射。普通按钮通过现有基础 Xbox 报告叠加短暂的虚拟按键；不要用虚拟报告覆盖真实摇杆、物理按键或扳机状态。释放、断连和 neutral/reset 路径必须清除虚拟按键，防止卡键。
+新增的 XInput 动作是给 Assistant/Capture 额外按键用的，不等于全部 Stadia 原生按键均可自由重映射。普通按钮通过现有基础 Xbox 报告叠加虚拟按键状态，并在物理按住期间保持，松开时释放。不要用虚拟报告覆盖真实摇杆、物理按键或扳机状态。释放、USB reset 和断连路径必须清除虚拟按键，防止卡键。
 
 当前行为边界：
-- 普通 XInput 映射按钮发出约 20 ms 的按下脉冲。
+- 键盘/媒体键与 XInput 虚拟按钮保持到物理按键松开，不再发送固定 20 ms 脉冲。
 - 映射到 LT/RT 会发送全按强度，不是可配置的模拟压力。
 - Stadia 手柄没有 Xbox Series 手柄那样独立的扳机震动马达。
 
@@ -121,7 +121,7 @@
 
 已确认的功能差异：
 - 本仓库改进了 BLE 震动输出路径：串行写入、失败退避重试、保护在途 payload，并优先处理最新目标；震动 8 位强度按 `n * 257` 扩展为 16 位。效果仍要真机验证。
-- 本仓库给 Assistant/Capture 加入短按 / 长按触发 XInput 虚拟按钮的选项。
+- 本仓库将 Assistant/Capture 改为每键单动作的按下/松开映射；NVS schema 7 迁移会清除旧长按动作。
 - 本仓库主要面向中文用户，补充 USB WebHID 协议合约测试与维护交接文档。
 - 原有双手柄、鼠标模式、Wi-Fi Web UI、USB 配置等能力不少是继承基础工程，不要把它们全都描述成本仓库新功能。
 
@@ -173,7 +173,7 @@ CI 使用 ESP-IDF 6.0、目标 `esp32s3`，执行 `idf.py build` 并用 esptool 
 - 《Silksong》冲刺后停止操作，震动能及时停止。
 - 《A Hat in Time》帽子轮盘连续旋转时强弱变化和节奏可以辨认。
 - 两个手柄连接时没有跨手柄发送错误。
-- Assistant/Capture 的短按与长按映射正确；虚拟按钮松开后不会卡住且不会覆盖真实输入。
+- Assistant/Capture 每键只配置一个动作，输出在物理按住时保持、松开时释放；虚拟按钮不会卡住或覆盖真实输入。
 - 保存配置后断电重启，NVS 中映射仍可用。
 - USB 配置页断开/重连、配对、忘记手柄、Wi-Fi 手动开关和重启路径都符合 checklist。
 
@@ -195,3 +195,23 @@ CI 使用 ESP-IDF 6.0、目标 `esp32s3`，执行 `idf.py build` 并用 esptool 
 - 保持 README 详细，并记下实现取舍、来源链接、测试方式和已知限制。
 - 不要求普通用户在本地配置 ESP-IDF；优先提供 Actions 云端构建产物和可用的在线安装器。
 - 每次交付都要区分代码、CI、部署、真机验证四种状态，并给出可以点击核查的链接。
+
+## 最新变更：Assistant/Capture 单动作按下/松开映射（2026-10-18）
+
+这次改动是基于本项目现有 Stadia BLE、TinyUSB、XInput 与 WebHID 结构完成的，不要把整个固件替换成通用手柄固件。对照过的上游 `danzig666/stadia-dongle-esp` 仍采用短按/长按配置；Joypad OS 的 `bt2usb` 是另一套通用蓝牙到 USB 输出架构，不是当前 Stadia + 震动 + WebHID 配置流程的直接替代品。
+
+网页源码权威路径是 `main/index.html` 和 `main/webhid_transport.js`，由 `main/CMakeLists.txt` 的 `EMBED_TXTFILES` 嵌入固件；`main/index_html.h` 不在当前构建输入中，是遗留文件。修改配置页时以这两个源码文件为准，除非后续构建真的重新引用遗留头文件。
+
+实现约束：
+
+- `main/index.html`、`main/webhid_transport.js` 和 `main/web_server.c` 使用 `assistant_action` / `capture_action` 两个字段；默认分别为 F14 / F12。不应再暴露短按、长按下拉框或长按时间字段。
+- `main/button_actions.c` 在物理按下时启动映射动作，在物理松开时释放动作。XInput 虚拟按钮使用引用计数，避免两个映射指向同一按钮时其中一个松开就错误释放另一个。
+- `main/hid_extra.c` 保存每个额外按键的键盘/媒体键状态，并持续发送报告直到状态变化。键盘报告合并同时按下的按键；Consumer Control 报告可容纳四个 usage。
+- Assistant 与 Capture 同时、连续按住满 5 秒才切换鼠标模式；不足 5 秒松开不应触发，组合键期间不输出各自独立映射。
+- BLE 断连会排队发送全零控制器状态，必须使任何 held mapping 都释放。USB bus reset 不应造成键盘或媒体键一直卡住。
+- `bridge_send_neutral()` 用于断连和鼠标模式。中立报告期间要抑制 XInput 虚拟按钮输出，但保留逻辑按住状态；退出鼠标模式后，仍按住的映射应随正常 XInput 报告恢复。
+- NVS blob 的原有字段布局保留，`CFG_SCHEMA` 为 7。迁移时保留旧配置中的 Assistant/Capture 原短按动作作为新映射，并清空旧长按动作；不要随意重排 `dongle_action_t` 枚举。
+- USB 配置协议仍为 v1 的 9 字节 payload：偏移 0 是 Assistant 动作，偏移 2 是 Capture 动作；偏移 1、3、4–5 是旧版长按配置保留字段，新固件忽略，浏览器仍写兼容值。除非准备同步升级两端和兼容策略，否则不要改变 payload 长度或动作 ID 顺序。
+
+验证顺序：先运行 `npm test`，再等待 `.github/workflows/release.yml` 的 ESP-IDF 构建成功，最后按 `docs/hardware-test-checklist.md` 实机测试按住/松开、断连释放、鼠标模式切换前后状态、双手柄与震动。CI 构建通过不等于已完成真机验收。
+

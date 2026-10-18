@@ -38,6 +38,8 @@ static SemaphoreHandle_t s_report_lock;
 static uint8_t s_base_xbox_report[DONGLE_MAX_CONTROLLERS][DONGLE_XBOX_REPORT_SIZE];
 static bool s_base_xbox_report_valid[DONGLE_MAX_CONTROLLERS];
 static uint32_t s_virtual_buttons[DONGLE_MAX_CONTROLLERS];
+/* Neutral reports are used on disconnect and in mouse mode; never apply virtual gamepad buttons to them. */
+static bool s_base_report_neutral[DONGLE_MAX_CONTROLLERS];
 
 void bridge_init(void)
 {
@@ -119,7 +121,9 @@ static void enqueue_current_report_locked(uint8_t gamepad_index)
         .len = DONGLE_XBOX_REPORT_SIZE,
     };
     memcpy(msg.data, s_base_xbox_report[gamepad_index], DONGLE_XBOX_REPORT_SIZE);
-    apply_virtual_buttons(gamepad_index, msg.data);
+    if (!s_base_report_neutral[gamepad_index]) {
+        apply_virtual_buttons(gamepad_index, msg.data);
+    }
 
     if (xQueueSendToBack(ble_to_usb_queue, &msg, 0) != pdTRUE) {
         ble_to_usb_msg_t discarded;
@@ -139,6 +143,7 @@ void bridge_send_xbox_report(uint8_t gamepad_index, const uint8_t *report, size_
     s_base_xbox_report[gamepad_index][0] = 0x00;
     s_base_xbox_report[gamepad_index][1] = DONGLE_XBOX_REPORT_SIZE;
     s_base_xbox_report_valid[gamepad_index] = true;
+    s_base_report_neutral[gamepad_index] = false;
     enqueue_current_report_locked(gamepad_index);
     xSemaphoreGive(s_report_lock);
 }
@@ -165,7 +170,8 @@ void bridge_send_neutral(uint8_t gamepad_index)
     memset(s_base_xbox_report[gamepad_index], 0, DONGLE_XBOX_REPORT_SIZE);
     s_base_xbox_report[gamepad_index][1] = DONGLE_XBOX_REPORT_SIZE;
     s_base_xbox_report_valid[gamepad_index] = true;
-    s_virtual_buttons[gamepad_index] = 0;
+    s_base_report_neutral[gamepad_index] = true;
+    /* Keep logical virtual-button state; suppress it only while neutral output is required. */
     enqueue_current_report_locked(gamepad_index);
     xSemaphoreGive(s_report_lock);
 }

@@ -868,6 +868,9 @@ static int gap_event_fn(struct ble_gap_event *event, void *arg)
         if (slot) {
             slot->state = CONTROLLER_SLOT_DISCONNECTING;
             bridge_send_neutral(usb);
+            /* No more BLE reports may arrive to deliver a button-up state. */
+            const stadia_controller_state_t released_state = {0};
+            button_actions_on_state(usb, &released_state);
             clear_slot(slot);
         }
         controller_manager_note_disconnected();

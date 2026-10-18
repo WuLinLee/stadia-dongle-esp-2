@@ -535,11 +535,8 @@ export function parseConfig(payloadValue) {
   const payload = uint8View(payloadValue);
   if (payload.length !== 9) throw new Error("配置数据无效。");
   return {
-    assistant_short: ACTION_NAMES[payload[0]] ?? "none",
-    assistant_long: ACTION_NAMES[payload[1]] ?? "none",
-    capture_short: ACTION_NAMES[payload[2]] ?? "none",
-    capture_long: ACTION_NAMES[payload[3]] ?? "none",
-    long_press_ms: readU16(payload, 4),
+    assistant_action: ACTION_NAMES[payload[0]] ?? "none",
+    capture_action: ACTION_NAMES[payload[2]] ?? "none",
     webui_timeout_seconds: readU16(payload, 6),
     disable_ap_on_suspend: Boolean(payload[8] & (1 << 0)),
     webui_auto_start_if_no_bond: Boolean(payload[8] & (1 << 1)),
@@ -548,11 +545,10 @@ export function parseConfig(payloadValue) {
 
 export function encodeConfig(config) {
   const payload = new Uint8Array(9);
-  payload[0] = actionCode(config.assistant_short);
-  payload[1] = actionCode(config.assistant_long);
-  payload[2] = actionCode(config.capture_short);
-  payload[3] = actionCode(config.capture_long);
-  writeU16(payload, 4, Number(config.long_press_ms));
+  payload[0] = actionCode(config.assistant_action);
+  payload[2] = actionCode(config.capture_action);
+  /* Keep the legacy protocol-v1 threshold valid for older firmware. */
+  writeU16(payload, 4, 1000);
   writeU16(payload, 6, Number(config.webui_timeout_seconds));
   payload[8] =
     (config.disable_ap_on_suspend ? 1 << 0 : 0) |
@@ -661,11 +657,8 @@ export class StadiaUsbApi {
         await this.transport.command(COMMAND.getConfig),
       );
       const config = {
-        assistant_short: body.get("assistant_short"),
-        assistant_long: body.get("assistant_long"),
-        capture_short: body.get("capture_short"),
-        capture_long: body.get("capture_long"),
-        long_press_ms: Number(body.get("long_press_ms")),
+        assistant_action: body.get("assistant_action"),
+        capture_action: body.get("capture_action"),
         webui_timeout_seconds: Number(body.get("webui_timeout_seconds")),
         disable_ap_on_suspend: body.get("disable_ap_on_suspend") === "on",
         webui_auto_start_if_no_bond: current.webui_auto_start_if_no_bond,
