@@ -26,7 +26,7 @@
 | 芯片 / 主刷写偏移 | ESP32-S3，完整镜像写入偏移 `0x0` | 相同 |
 | 刷写页 | 中文说明、下载完整 `.bin`、配置页和 Releases 入口 | 英文说明，主要提供 Install 按钮和配置页入口 |
 | 核心用途 | Stadia BLE → USB Xbox 360/XInput、双手柄和配置功能，并包含本仓库的改动 | 相同的基础架构和大部分既有功能 |
-| 震动转发 | 恢复直接上游的基本 BLE GATT 写入流程和震动报告字节布局；写入失败会记录日志，但不额外自动重试 | 上游自己的实现；不能把两边的行为假定为完全一致 |
+| 震动转发 | 加入串行 BLE 写入、失败退避重试、最新震动目标优先，以及更完整的 8→16 位强度换算 | 上游自己的实现；不能把两边的行为假定为完全一致 |
 | Assistant / Capture | 本仓库新增每键一个动作的按下/松开映射，可保持 XInput 按键 | 已有可配置额外按键动作，但无本仓库新增的 held XInput mapping |
 | USB 配置与文档 | 中文 USB WebHID 配置页、协议合约测试和维护交接文档 | 原有 USB 配置 / WebHID 功能及上游文档 |
 
@@ -92,8 +92,8 @@
 | Stadia 蓝牙连接 | 基于 ESP32-S3 BLE / NimBLE；维护独立手柄连接槽位，最多支持 2 个手柄 |
 | Xbox / XInput USB | 通过 TinyUSB 自定义 Xbox 360 兼容 USB 接口输出按键、方向键、摇杆和扳机 |
 | 双马达震动 | 读取 Xbox 输出报告里的大小马达强度，映射为 Stadia 手柄的两个马达 |
-| 震动写入 | 每个手柄通过 BLE GATT 输出震动报告；采用直接上游的基本写入流程，不自动重试失败的写入 |
-| 震动报告格式 | 与直接上游一致，大马达/小马达的 8 位强度分别写入对应 16 位字段的高字节；不使用 `n × 257` 换算 |
+| 震动可靠性 | 每个手柄独立维护震动目标；串行处理 BLE 输出写入；写入失败时退避重试；快速变化时优先保留最新目标，降低停止震动指令丢失和旧震动积压的风险 |
+| 震动强度换算 | 使用 `n × 257` 将 8 位强度扩展成 16 位强度，覆盖完整的 0–65535 范围 |
 | Assistant / Capture 额外按键 | 每个按键独立配置一个动作；按下保持输出，松开释放 |
 | 额外按键输出 | 除键盘和媒体动作外，还可输出 XInput A/B/X/Y、LB/RB、Start/Back、L3/R3、Guide、十字键和 LT/RT |
 | 虚拟按键叠加 | 映射动作叠加到当前 XInput 报告；鼠标模式/断连时输出中立报告，物理松开后释放映射，仍按住的动作会在退出鼠标模式后恢复 |
@@ -118,15 +118,22 @@
 
 本仓库从该项目 fork。当前工程沿用其 Stadia 手柄接入 ESP32-S3、通过 USB 暴露 Xbox 兼容手柄及配套配置的总体方向，再在本仓库维护和扩展代码。
 
-### 2. [Scalee/stadia-dongle](https://github.com/Scalee/stadia-dongle) — 可选的震动可靠性参考
+### 2. [Scalee/stadia-dongle](https://github.com/Scalee/stadia-dongle) — 震动写入可靠性
 
-该项目有针对高负载震动写入问题的修复：[相关修复提交 d92ac6d](https://github.com/Scalee/stadia-dongle/commit/d92ac6d3e2b7bd07d716940a5e160aa1a215d655)。它可以作为以后排查丢失震动指令的参考，但**当前版本没有移植其中的失败重试、在途数据保护或最新目标管理机制**。
+重点参考了这个项目针对高负载震动写入问题的修复：[相关修复提交 d92ac6d](https://github.com/Scalee/stadia-dongle/commit/d92ac6d3e2b7bd07d716940a5e160aa1a215d655)。
 
-当前震动路径恢复为直接上游的基本写入方式：写入失败会记录日志，不会自动退避重试。这样减少了新增的处理逻辑，但也意味着失败的震动或停止指令不会由这套逻辑自动补发；真实效果仍需硬件测试。
+参考的思路包括：
 
-### 3. [Joypad OS](https://github.com/joypad-ai/joypad-os) — Stadia BLE 报告格式参考
+- BLE 写入失败时重试，而不是只记录错误就放弃。
+- 不让过期的震动更新长期排队；优先处理当前最新的马达强度。
+- 写入尚未完成时保护正在发送的数据，避免被后续震动更新覆盖。
+- 减少不必要的重复写入，并注意 BLE 连接参数对写入节奏的影响。
 
-参考了 Joypad OS 的 [Stadia BLE 驱动](https://github.com/joypad-ai/joypad-os/blob/main/src/bt/bthid/devices/vendors/google/stadia_bt.c)，用于对照 Stadia BLE 双马达输出报告。当前本项目的强度字节布局刻意恢复为直接上游的格式，并没有采用 Joypad OS 的 `n × 257` 换算。
+当前 fork 按现有的**多手柄槽位结构**实现自己的异步写入和重试流程，而不是直接把上游单手柄代码原样覆盖进来。目标是降低游戏快速变化震动强度时丢失停止指令、震动拖尾或节奏被旧更新挤占的风险；仍需真机游戏测试验证最终效果。
+
+### 3. [Joypad OS](https://github.com/joypad-ai/joypad-os) — Stadia BLE 报告和强度换算
+
+参考了 Joypad OS 的 [Stadia BLE 驱动](https://github.com/joypad-ai/joypad-os/blob/main/src/bt/bthid/devices/vendors/google/stadia_bt.c)，尤其是 Stadia 双马达输出报告的处理方式。它使用 `n × 257` 把 8 位马达强度扩展为 16 位值；本项目也采用这种换算，避免只填 16 位强度的高字节而损失分辨率。
 
 还参考了 Joypad OS 对通用按键映射/Profile 的设计思路，相关说明见 [Profiles 文档](https://github.com/joypad-ai/joypad-os/blob/main/docs/core/profiles.md)。但 Joypad OS 的 `bt2usb` 构建目标并没有启用 Profile 系统，而且其预编译固件按具体板型提供，因此**没有把它的整套固件当作当前通用 ESP32-S3 开发板的直接替换件**。本项目当前先实现 Assistant/Capture 额外按键到 XInput 按钮的映射，并保留当前 USB / WebHID 配置架构。
 
