@@ -17,7 +17,7 @@
 ## 仓库与当前工作状态
 
 - 仓库：<https://github.com/WuLinLee/stadia-dongle-esp-2>
-- 主分支：`main`（PR #1 已于 2026-10-17 合并；合并提交 `f755823735f31b7625a358b5650860d992f3ba41`）。开发分支 `codex/rumble-write-reliability` 是历史工作分支，不要假设它仍是待合并状态。
+- 主分支：`main`。PR #1 于 2026-10-17 合并（`f755823735f31b7625a358b5650860d992f3ba41`）；PR #2（Assistant/Capture 按住映射和 5 秒鼠标模式组合键）于 2026-10-18 合并，合并提交为 `38dedfebb64edd519dd7244ac3d44acfd4e2a600`。PR #2 后又补充了 README 与 USB 协议文档，实际最新 `main` SHA 和 Pages 部署状态仍须通过 Actions 实时核对。开发分支 `codex/rumble-write-reliability` 是历史工作分支，不要假设它仍是待合并状态。
 - 历史 PR：[#1 — fix: improve Stadia rumble and add XInput button mapping](https://github.com/WuLinLee/stadia-dongle-esp-2/pull/1)
 - CI 实时状态：<https://github.com/WuLinLee/stadia-dongle-esp-2/actions/workflows/release.yml>
 - 工作流：[`.github/workflows/release.yml`](.github/workflows/release.yml)
@@ -198,7 +198,7 @@ CI 使用 ESP-IDF 6.0、目标 `esp32s3`，执行 `idf.py build` 并用 esptool 
 
 ## 最新变更：Assistant/Capture 单动作按下/松开映射（2026-10-18）
 
-这次改动是基于本项目现有 Stadia BLE、TinyUSB、XInput 与 WebHID 结构完成的，不要把整个固件替换成通用手柄固件。对照过的上游 `danzig666/stadia-dongle-esp` 仍采用短按/长按配置；Joypad OS 的 `bt2usb` 是另一套通用蓝牙到 USB 输出架构，不是当前 Stadia + 震动 + WebHID 配置流程的直接替代品。
+这次改动已通过 [PR #2](https://github.com/WuLinLee/stadia-dongle-esp-2/pull/2) 合并到 `main`（2026-10-18，合并提交 `38dedfebb64edd519dd7244ac3d44acfd4e2a600`）。后续 README、USB 协议文档的明确说明也已提交到 `main`。硬件行为仍需在实际 ESP32-S3 与手柄上验收。这次改动是基于本项目现有 Stadia BLE、TinyUSB、XInput 与 WebHID 结构完成的，不要把整个固件替换成通用手柄固件。对照过的上游 `danzig666/stadia-dongle-esp` 仍采用短按/长按配置；Joypad OS 的 `bt2usb` 是另一套通用蓝牙到 USB 输出架构，不是当前 Stadia + 震动 + WebHID 配置流程的直接替代品。
 
 网页源码权威路径是 `main/index.html` 和 `main/webhid_transport.js`，由 `main/CMakeLists.txt` 的 `EMBED_TXTFILES` 嵌入固件；`main/index_html.h` 不在当前构建输入中，是遗留文件。修改配置页时以这两个源码文件为准，除非后续构建真的重新引用遗留头文件。
 
