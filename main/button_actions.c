@@ -185,15 +185,18 @@ static void update_single_button(action_button_state_t *btn, uint8_t gamepad_ind
 static void enter_mouse_combo(action_button_state_t *assistant,
                               action_button_state_t *capture,
                               uint8_t gamepad_index, int64_t now,
+                              bool assistant_pressed, bool capture_pressed,
                               int64_t *combo_start_us, bool *combo_suppressed,
                               bool *combo_triggered)
 {
     release_button_output(assistant, gamepad_index, action_slot(gamepad_index, false));
     release_button_output(capture, gamepad_index, action_slot(gamepad_index, true));
-    assistant->physical_pressed = true;
+    assistant->physical_pressed = assistant_pressed;
     assistant->action = DONGLE_ACTION_NONE;
-    capture->physical_pressed = true;
+    assistant->output_active = false;
+    capture->physical_pressed = capture_pressed;
     capture->action = DONGLE_ACTION_NONE;
+    capture->output_active = false;
     *combo_suppressed = true;
     *combo_start_us = now;
     *combo_triggered = false;
@@ -245,7 +248,8 @@ static void button_actions_task(void *arg)
                 hid_extra_remote_wakeup();
             }
 
-            bool mouse_combo = st.assistant && st.capture;
+            /* D-pad down plus either Assistant or Capture toggles mouse mode. */
+            bool mouse_combo = st.dpad_down && (st.assistant || st.capture);
             if (mouse_combo_suppressed[idx]) {
                 update_suppressed_combo(&assistant[idx], st.assistant);
                 update_suppressed_combo(&capture[idx], st.capture);
@@ -263,6 +267,7 @@ static void button_actions_task(void *arg)
                 }
             } else if (mouse_combo) {
                 enter_mouse_combo(&assistant[idx], &capture[idx], idx, now,
+                                  st.assistant, st.capture,
                                   &mouse_combo_start_us[idx],
                                   &mouse_combo_suppressed[idx],
                                   &mouse_combo_triggered[idx]);

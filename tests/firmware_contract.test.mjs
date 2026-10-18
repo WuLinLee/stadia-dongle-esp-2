@@ -137,7 +137,7 @@ test("configuration page is Chinese and exposes firmware mapping defaults", asyn
   assert.match(index, /assistant_action:\s*"f14"/);
   assert.match(index, /capture_action:\s*"f12"/);
   assert.doesNotMatch(index, /assistant_short|assistant_long|capture_short|capture_long|long_press_ms/);
-  assert.match(index, /Assistant \+ Capture<\/b> 2 秒/);
+  assert.match(index, /十字键下 \+ Assistant 或 Capture<\/b> 2 秒/);
   assert.match(index, /webui_timeout_seconds:\s*120/);
   assert.match(index, /id="restoreDefaults"/);
   assert.match(index, /applyConfig\(defaultMapping\)/);
@@ -153,6 +153,7 @@ test("Assistant/Capture outputs stay held until physical key-up", async () => {
   assert.match(buttons, /bridge_set_virtual_gamepad_button\(gamepad_index, gamepad_button, false\)/);
   assert.doesNotMatch(buttons, /vTaskDelay\(pdMS_TO_TICKS\(20\)\)/);
   assert.match(buttons, /now - setup_combo_start_us\[idx\] > 5000000/);
+  assert.match(buttons, /bool mouse_combo = st\.dpad_down && \(st\.assistant \|\| st\.capture\)/);
   assert.match(buttons, /mouse_combo_start_us\[i\] > 2000000/);
   assert.match(hid, /0x75, 0x10, 0x95, 0x04, 0x81, 0x00/);
   assert.match(hid, /Keep logical held-key state across USB bus resets/);

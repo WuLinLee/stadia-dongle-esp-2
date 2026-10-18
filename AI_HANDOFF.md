@@ -207,7 +207,7 @@ CI 使用 ESP-IDF 6.0、目标 `esp32s3`，执行 `idf.py build` 并用 esptool 
 - `main/index.html`、`main/webhid_transport.js` 和 `main/web_server.c` 使用 `assistant_action` / `capture_action` 两个字段；默认分别为 F14 / F12。不应再暴露短按、长按下拉框或长按时间字段。
 - `main/button_actions.c` 在物理按下时启动映射动作，在物理松开时释放动作。XInput 虚拟按钮使用引用计数，避免两个映射指向同一按钮时其中一个松开就错误释放另一个。
 - `main/hid_extra.c` 保存每个额外按键的键盘/媒体键状态，并持续发送报告直到状态变化。键盘报告合并同时按下的按键；Consumer Control 报告可容纳四个 usage。
-- Assistant 与 Capture 同时、连续按住满 2 秒才切换鼠标模式；不足 2 秒松开不应触发，组合键期间不输出各自独立映射。
+- 连续按住“十字键下 + Assistant”或“十字键下 + Capture”任一组合满 2 秒才切换鼠标模式；组合条件提前中断不应触发，组合键期间不输出 Assistant/Capture 各自的独立映射。
 - BLE 断连会排队发送全零控制器状态，必须使任何 held mapping 都释放。USB bus reset 不应造成键盘或媒体键一直卡住。
 - `bridge_send_neutral()` 用于断连和鼠标模式。中立报告期间要抑制 XInput 虚拟按钮输出，但保留逻辑按住状态；退出鼠标模式后，仍按住的映射应随正常 XInput 报告恢复。
 - NVS blob 的原有字段布局保留，`CFG_SCHEMA` 为 7。迁移时保留旧配置中的 Assistant/Capture 原短按动作作为新映射，并清空旧长按动作；不要随意重排 `dongle_action_t` 枚举。
@@ -216,7 +216,7 @@ CI 使用 ESP-IDF 6.0、目标 `esp32s3`，执行 `idf.py build` 并用 esptool 
 验证顺序：先运行 `npm test`，再等待 `.github/workflows/release.yml` 的 ESP-IDF 构建成功，最后按 `docs/hardware-test-checklist.md` 实机测试按住/松开、断连释放、鼠标模式切换前后状态、双手柄与震动。CI 构建通过不等于已完成真机验收。
 
 
-## 当前改动：鼠标模式组合键改为 2 秒
+## 当前改动：鼠标模式组合键改为十字键下 + Assistant/Capture 任一键，2 秒
 
-- Assistant + Capture 连续同时按住 2 秒切换鼠标模式；提前松开任何一个按键都会重置计时。
+- 连续按住“十字键下 + Assistant”或“十字键下 + Capture”任一组合 2 秒切换鼠标模式；组合条件中断时重置计时。
 - 原有震动实现、震动强度换算和 BLE 写入重试逻辑不属于此次修改，必须保持不变。
