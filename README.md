@@ -237,6 +237,15 @@ Actions Artifact 通常只保留 7 天；Release 附件用于长期保存正式�
 
 ## 维护者 / 下一个 AI：接手开发
 
+> **PR #4 交接记录（请先读）**
+>
+> - [PR #4：docs: refresh release status, tests, and maintainer handoff](https://github.com/WuLinLee/stadia-dongle-esp-2/pull/4) 已**关闭且未合并**。不要把它描述成已合并的 PR，也不要为了“清理历史”重新打开或合并它。
+> - PR #4 的分支是 [`codex/docs-current-release-and-tests`](https://github.com/WuLinLee/stadia-dongle-esp-2/tree/codex/docs-current-release-and-tests)，改动涉及 `README.md`、`AI_HANDOFF.md`、`PRODUCT.md`。为保留有用的用户说明，PR #4 的 README 内容后来被单独复制到 `main`；**这不代表 PR #4 中另外两个文件的修改也进入了 main**。
+> - 接手时先比较 `main` 与该分支的 `AI_HANDOFF.md`、`PRODUCT.md`，逐项判断是否仍准确、是否有价值，再决定是否单独移植；不要整支合并，也不要覆盖 main 上后来更新的内容。
+> - PR #4 中记录的 Release 版本、Actions run、SHA 和 OTA 差异属于当时核对到的状态。尤其 OTA 打包问题应重新检查当前 workflow、分区表、OTA handler 和线上页面，不能只凭这段历史文字断定当前仍然存在或已经修复。
+> - 用户已报告：**通过网页刷机后，设备能正常工作，按键与震动正常**。这是一条用户反馈，不是完整的冷启动、OTA、回滚或长期稳定性测试结果。不要因为已能正常使用就贸然改固件；若计划修改刷写/OTA 流程，先说明风险并准备可恢复方案。
+>
+
 如果要继续修改固件、WebHID 协议、按键映射或发布流程，请先读 [`AI_HANDOFF.md`](AI_HANDOFF.md) 和 [`PRODUCT.md`](PRODUCT.md)，再检查对应的源码与测试。本文面向使用者的说明不取代交接文档中更细的约束。
 
 下一个 AI 应按这个顺序接手：
