@@ -244,10 +244,10 @@ static void handle_get_config(uint8_t *response)
     config_store_get(&config);
     uint8_t *payload = response + USB_CONFIG_HEADER_SIZE;
     payload[0] = config.assistant_short_action;
-    payload[1] = config.assistant_long_action;
+    payload[1] = DONGLE_ACTION_NONE; /* Legacy Assistant long action reserved. */
     payload[2] = config.capture_short_action;
-    payload[3] = config.capture_long_action;
-    put_u16(payload + 4, config.long_press_ms);
+    payload[3] = DONGLE_ACTION_NONE; /* Legacy Capture long action reserved. */
+    put_u16(payload + 4, 1000);      /* Legacy long-press threshold reserved. */
     put_u16(payload + 6,
             (uint16_t)(config.webui_timeout_after_ble_connected_ms / 1000U));
     payload[8] = (config.disable_ap_on_usb_suspend ? 1u << 0 : 0) |
@@ -259,26 +259,22 @@ static usb_config_status_t handle_set_config(const uint8_t *payload, size_t payl
 {
     if (payload_len != 9 ||
         !action_valid(payload[0]) ||
-        !action_valid(payload[1]) ||
-        !action_valid(payload[2]) ||
-        !action_valid(payload[3])) {
+        !action_valid(payload[2])) {
         return USB_CONFIG_STATUS_INVALID_PAYLOAD;
     }
 
-    uint16_t long_press_ms = get_u16(payload + 4);
     uint16_t timeout_seconds = get_u16(payload + 6);
-    if (long_press_ms < 300 || long_press_ms > 5000 ||
-        timeout_seconds < 15 || timeout_seconds > 1800) {
+    if (timeout_seconds < 15 || timeout_seconds > 1800) {
         return USB_CONFIG_STATUS_INVALID_PAYLOAD;
     }
 
     dongle_config_t config;
     config_store_get(&config);
     config.assistant_short_action = payload[0];
-    config.assistant_long_action = payload[1];
+    config.assistant_long_action = DONGLE_ACTION_NONE;
     config.capture_short_action = payload[2];
-    config.capture_long_action = payload[3];
-    config.long_press_ms = long_press_ms;
+    config.capture_long_action = DONGLE_ACTION_NONE;
+    config.long_press_ms = 1000;
     config.webui_timeout_after_ble_connected_ms = (uint32_t)timeout_seconds * 1000U;
     config.disable_ap_on_usb_suspend = (payload[8] & (1u << 0)) != 0;
     config.webui_auto_start_if_no_bond = (payload[8] & (1u << 1)) != 0;
