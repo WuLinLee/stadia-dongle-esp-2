@@ -362,8 +362,8 @@ static esp_err_t keymap_get_handler(httpd_req_t *req)
     snprintf(json, sizeof(json),
              "{\"assistant_action\":\"%s\",\"capture_action\":\"%s\","
              "\"webui_timeout_seconds\":%u,\"disable_ap_on_suspend\":%s}",
-             config_store_action_name(cfg.assistant_short_action),
-             config_store_action_name(cfg.capture_short_action),
+             config_store_action_name(cfg.assistant_action),
+             config_store_action_name(cfg.capture_action),
              (unsigned)(cfg.webui_timeout_after_ble_connected_ms / 1000),
              cfg.disable_ap_on_usb_suspend ? "true" : "false");
     return send_text(req, json, "application/json");
@@ -449,8 +449,8 @@ static esp_err_t keymap_post_handler(httpd_req_t *req)
     dongle_config_t cfg;
     config_store_get(&cfg);
     char v[40];
-    if (!parse_action_value(body, "assistant_action", &cfg.assistant_short_action) ||
-        !parse_action_value(body, "capture_action", &cfg.capture_short_action)) {
+    if (!parse_action_value(body, "assistant_action", &cfg.assistant_action) ||
+        !parse_action_value(body, "capture_action", &cfg.capture_action)) {
         return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST,
                                    "Missing or invalid button action");
     }
