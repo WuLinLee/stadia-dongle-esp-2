@@ -10,7 +10,7 @@
 
 #define CFG_NS "dongle_cfg"
 #define CFG_KEY "config"
-#define CFG_SCHEMA 6
+#define CFG_SCHEMA 7
 
 static const char *TAG = "CFG";
 
@@ -24,7 +24,7 @@ void config_store_defaults(dongle_config_t *cfg)
     cfg->assistant_short_action = DONGLE_ACTION_KEY_F14;
     cfg->assistant_long_action = DONGLE_ACTION_NONE;
     cfg->capture_short_action = DONGLE_ACTION_KEY_F12;
-    cfg->capture_long_action = DONGLE_ACTION_KEY_F15;
+    cfg->capture_long_action = DONGLE_ACTION_NONE;
     cfg->long_press_ms = 1000;
     cfg->webui_auto_start_if_no_bond = false;
     cfg->webui_timeout_after_ble_connected_ms = 120000;
@@ -68,6 +68,10 @@ void config_store_init(void)
         if (s_cfg.assistant_long_action == DONGLE_ACTION_START_WEBUI) {
             s_cfg.assistant_long_action = DONGLE_ACTION_NONE;
         }
+        /* Schema 7 uses one held action per extra button; discard legacy long actions. */
+        s_cfg.assistant_long_action = DONGLE_ACTION_NONE;
+        s_cfg.capture_long_action = DONGLE_ACTION_NONE;
+        s_cfg.long_press_ms = 1000;
         s_cfg.webui_auto_start_if_no_bond = false;
         s_cfg.schema_version = CFG_SCHEMA;
         nvs_set_blob(nvs, CFG_KEY, &s_cfg, sizeof(s_cfg));
@@ -94,6 +98,10 @@ esp_err_t config_store_set(const dongle_config_t *cfg)
 
     dongle_config_t next = *cfg;
     next.schema_version = CFG_SCHEMA;
+    /* Keep the persisted struct layout, but do not save legacy long-press mappings. */
+    next.assistant_long_action = DONGLE_ACTION_NONE;
+    next.capture_long_action = DONGLE_ACTION_NONE;
+    next.long_press_ms = 1000;
     nvs_handle_t nvs;
     esp_err_t err = nvs_open(CFG_NS, NVS_READWRITE, &nvs);
     if (err != ESP_OK) {
@@ -114,11 +122,9 @@ esp_err_t config_store_set(const dongle_config_t *cfg)
     s_cfg = next;
     if (s_cfg_lock) xSemaphoreGive(s_cfg_lock);
 
-    ESP_LOGI(TAG, "Saved keymap: assistant short=%s long=%s capture short=%s long=%s",
+    ESP_LOGI(TAG, "Saved extra-button mappings: assistant=%s capture=%s",
              config_store_action_name(next.assistant_short_action),
-             config_store_action_name(next.assistant_long_action),
-             config_store_action_name(next.capture_short_action),
-             config_store_action_name(next.capture_long_action));
+             config_store_action_name(next.capture_short_action));
     return ESP_OK;
 }
 
