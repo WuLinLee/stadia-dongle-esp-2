@@ -250,7 +250,7 @@ static void button_actions_task(void *arg)
                 update_suppressed_combo(&assistant[idx], st.assistant);
                 update_suppressed_combo(&capture[idx], st.capture);
                 if (!mouse_combo) {
-                    /* The chord must stay continuously held for all five seconds. */
+                    /* The chord must stay continuously held for two seconds. */
                     mouse_combo_start_us[idx] = 0;
                     mouse_combo_triggered[idx] = false;
                 }
@@ -277,9 +277,9 @@ static void button_actions_task(void *arg)
         for (uint8_t i = 0; i < DONGLE_MAX_CONTROLLERS; i++) {
             bool combo_pending = mouse_combo_start_us[i] != 0 && !mouse_combo_triggered[i];
             if (combo_pending && mouse_combo_suppressed[i] &&
-                esp_timer_get_time() - mouse_combo_start_us[i] > 5000000) {
+                esp_timer_get_time() - mouse_combo_start_us[i] > 2000000) {
                 mouse_combo_triggered[i] = true;
-                ESP_LOGI(TAG, "usb %u mouse combo held for 5 seconds; toggling mouse mode", i);
+                ESP_LOGI(TAG, "usb %u mouse combo held for 2 seconds; toggling mouse mode", i);
                 mouse_mode_toggle(i);
             }
         }

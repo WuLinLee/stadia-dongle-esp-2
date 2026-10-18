@@ -137,7 +137,7 @@ test("configuration page is Chinese and exposes firmware mapping defaults", asyn
   assert.match(index, /assistant_action:\s*"f14"/);
   assert.match(index, /capture_action:\s*"f12"/);
   assert.doesNotMatch(index, /assistant_short|assistant_long|capture_short|capture_long|long_press_ms/);
-  assert.match(index, /Assistant \+ Capture<\/b> 5 秒/);
+  assert.match(index, /Assistant \+ Capture<\/b> 2 秒/);
   assert.match(index, /webui_timeout_seconds:\s*120/);
   assert.match(index, /id="restoreDefaults"/);
   assert.match(index, /applyConfig\(defaultMapping\)/);
@@ -152,12 +152,13 @@ test("Assistant/Capture outputs stay held until physical key-up", async () => {
   assert.match(buttons, /bridge_set_virtual_gamepad_button\(gamepad_index, gamepad_button, true\)/);
   assert.match(buttons, /bridge_set_virtual_gamepad_button\(gamepad_index, gamepad_button, false\)/);
   assert.doesNotMatch(buttons, /vTaskDelay\(pdMS_TO_TICKS\(20\)\)/);
-  assert.match(buttons, /> 5000000/);
+  assert.match(buttons, /now - setup_combo_start_us\[idx\] > 5000000/);
+  assert.match(buttons, /mouse_combo_start_us\[i\] > 2000000/);
   assert.match(hid, /0x75, 0x10, 0x95, 0x04, 0x81, 0x00/);
   assert.match(hid, /Keep logical held-key state across USB bus resets/);
   const ble = await source("../main/ble_central.c");
   assert.match(ble, /const stadia_controller_state_t released_state = \{0\};[\s\S]*?button_actions_on_state\(usb, &released_state\)/);
-  assert.match(buttons, /The chord must stay continuously held for all five seconds/);
+  assert.match(buttons, /The chord must stay continuously held for two seconds/);
   const bridge = await source("../main/bridge.c");
   assert.match(bridge, /s_base_report_neutral\[gamepad_index\]/);
   assert.match(bridge, /if \(!s_base_report_neutral\[gamepad_index\]\)\s*\{\s*apply_virtual_buttons/);
