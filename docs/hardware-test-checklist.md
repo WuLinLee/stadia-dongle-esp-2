@@ -46,7 +46,7 @@
 3. 在《Silksong》中重复冲刺后停止操作，确认震动会及时停止；在《A Hat in Time》中连续旋转帽子选择轮盘，确认强弱变化和节奏仍可分辨。
 4. 如出现持续震动或强度被锁定，保存 ESP32 串口日志，重点检查 `rumble write start failed`、`rumble write completion failed` 与 USB `rumble out large=... small=...` 记录；同时确认游戏确实发出了零强度停止报告。
 3. 按住 Capture，确认默认输出 `F12` 持续保持，松开后立即释放。
-4. 临时将 Assistant 映射为方向键或空格，确认主机在按住期间持续识别按下状态，松开后释放；再测试一个 `gamepad_*` 映射。
+4. 临时将 Assistant 映射为方向键或空格，确认主机在按住期间持续识别按下状态，松开后释放；再测试一个 `gamepad_*` 映射，并在按住时关闭手柄，确认断连会释放主机按键。
 5. 同时按住 Assistant + Capture 满 5 秒，确认鼠标模式切换；少于 5 秒松开时不应切换，且两枚独立映射不应输出。
 6. 如需 OTA，连接 `StadiaDongle-XXXX` 并打开 `http://192.168.4.1`，确认上传入口仍可用。
 
