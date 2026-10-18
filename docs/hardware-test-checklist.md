@@ -46,7 +46,7 @@
 1. 在 Windows 游戏控制器测试页确认 A/B/X/Y、方向键、摇杆和扳机正常。
 2. 在支持 XInput 震动的游戏或测试程序中确认双马达震动仍能传到 Stadia 手柄。
 3. 在《Silksong》中重复冲刺后停止操作，确认震动会及时停止；在《A Hat in Time》中连续旋转帽子选择轮盘，确认强弱变化和节奏仍可分辨。
-4. 如出现持续震动或强度被锁定，保存 ESP32 串口日志，检查 `rumble write start failed`、`rumble write completion failed` 与 USB `rumble out large=... small=...` 记录，并确认游戏发出了零强度停止报告。当前震动路径不自动重试失败的写入。
+4. 如出现持续震动或强度被锁定，保存 ESP32 串口日志，重点检查 `rumble write start failed`、`rumble write completion failed` 与 USB `rumble out large=... small=...` 记录；同时确认游戏确实发出了零强度停止报告。
 
 ### Assistant/Capture 按下与松开
 
