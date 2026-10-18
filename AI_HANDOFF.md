@@ -17,7 +17,7 @@
 ## 仓库与当前工作状态
 
 - 仓库：<https://github.com/WuLinLee/stadia-dongle-esp-2>
-- 主分支：`main`。PR #1 于 2026-10-17 合并（`f755823735f31b7625a358b5650860d992f3ba41`）；PR #2（Assistant/Capture 按住映射和 5 秒鼠标模式组合键）于 2026-10-18 合并，合并提交为 `38dedfebb64edd519dd7244ac3d44acfd4e2a600`。PR #2 后又补充了 README 与 USB 协议文档，实际最新 `main` SHA 和 Pages 部署状态仍须通过 Actions 实时核对。开发分支 `codex/rumble-write-reliability` 是历史工作分支，不要假设它仍是待合并状态。
+- 主分支：`main`。PR #1、#2、#3 的功能提交现已合并；鼠标模式组合键最终规则不是早期 PR 描述中的 5 秒，而是“十字键下 + Assistant 或 Capture 任意一个，连续 2 秒”。当前记录的基准提交为 `d8bc5f4600417f7fbb13404d3a745c8ad5931f40`（发布自动化工作流）；基准运行 [39113430355](https://github.com/WuLinLee/stadia-dongle-esp-2/actions/runs/39113430355) 的 Build、Create GitHub Release 和 Deploy Pages jobs 均成功，Release 为 [v2026.10.18.84](https://github.com/WuLinLee/stadia-dongle-esp-2/releases/tag/v2026.10.18.84)，内含 `firmware-merged.bin`。本文档提交本身会更新 main，并可能触发下一次自动构建/发布，因此开始工作时务必重新核对 [当前 main](https://github.com/WuLinLee/stadia-dongle-esp-2/commits/main)、[Actions](https://github.com/WuLinLee/stadia-dongle-esp-2/actions/workflows/release.yml) 和 [Latest Release](https://github.com/WuLinLee/stadia-dongle-esp-2/releases/latest)。开发分支 `codex/**` 主要用于测试构建，不要假设它是待合并状态。
 - 历史 PR：[#1 — fix: improve Stadia rumble and add XInput button mapping](https://github.com/WuLinLee/stadia-dongle-esp-2/pull/1)
 - CI 实时状态：<https://github.com/WuLinLee/stadia-dongle-esp-2/actions/workflows/release.yml>
 - 工作流：[`.github/workflows/release.yml`](.github/workflows/release.yml)
@@ -26,11 +26,22 @@
 
 ### 已知的 Pages/CI 注意事项
 
-1. 用户报告过在线刷机网站返回 “There isn't a GitHub Pages site here” 的 404。因此，**不要宣称在线刷机页已经上线**，直到确认成功的 Pages deployment，并实际验证站点首页、清单、固件文件和配置页均可访问。
+1. 过去曾有在线刷机网站返回 “There isn't a GitHub Pages site here” 的 404 报告；基准运行 `39113430355` 的 Pages job 现在已成功，但仍需在每次交付时实测首页、清单、固件文件和配置页，不要仅凭 job 绿勾声称线上所有 URL 均可用。
 2. 开发分支 `codex/**` 的构建只运行测试、编译并上传 Actions Artifact；它不会发布 GitHub Pages。这是有意的。Pages 发布只应发生在 `main` 或 `v*` 标签上。
 3. Pages 部署必须依赖成功的固件构建。工作流条件应保持为“`needs.build-firmware.result == 'success'` 且 ref 是 main 或版本标签”，不要恢复成无条件 `always()`，否则构建失败时也可能把缺少新固件的站点部署出去。
 4. 上述 Pages 条件有对应的合约测试 `tests/pages_contract.test.mjs`。修改 workflow 条件时，同步更新测试，使测试约束正确的安全行为，而不是为了让测试通过而恢复有问题的逻辑。
 5. 最近的 Pages 条件变更曾让 `npm test` 中旧断言失败：旧测试硬性要求 `always()`。这个失败属于测试预期落后于工作流变更，不是 ESP-IDF 编译错误。后续提交已经调整该断言；开始后续工作时要确认这之后的最新 CI 是否已通过。
+
+### 固件长期发布与 Release 规则
+
+这是当前 workflow 的实际行为，不要按旧文档中“只有手动推送 `v*` 标签才发布”的说明操作：
+
+- 推送到 `main` 且构建成功后，`Create GitHub Release` job 会自动生成版本标签 `v$(date -u +%Y.%m.%d).${GITHUB_RUN_NUMBER}`，例如基准运行生成的 `v2026.10.18.84`；`target_commitish` 指向该构建对应的提交。
+- Release 会被标记为 Latest，并附加完整刷写镜像 `firmware-merged.bin`。正式下载入口是 [Latest Release](https://github.com/WuLinLee/stadia-dongle-esp-2/releases/latest)；具体附件下载 URL 应从真实 Release assets 中核对，不能猜文件名/标签。
+- 推送 `v*` 标签时沿用该标签创建/更新 Release；Pages 也只在固件构建成功且 ref 是 `main` 或版本标签时部署。
+- `codex/**` 分支和 Pull Request 会运行测试、构建并保存名为 `firmware` 的 Actions Artifact，但不会创建正式 Release 或覆盖正式 Pages。Artifact 保留 7 天，不能替代 Release 长期存档。
+- 修改 workflow 后，要在最新 run 中分别检查 `Build ESP32-S3 firmware`、`Create GitHub Release` 和 `Deploy web installer to GitHub Pages` 的结果，并检查 Release 附件实际存在。仅仅 workflow 文件写了发布步骤，不表示资产已经上传。
+- 不要为了每个小修复手动创建版本标签；当前 main 的成功构建已自动创建版本。如用户明确要求命名版本，再讨论手动 tag 的用途与影响。
 
 ### Pages 发布流程
 
@@ -159,9 +170,9 @@ npm test
 标准路径是 GitHub Actions，而不是要求用户安装本地 ESP-IDF：
 
 1. 打开 [Actions](https://github.com/WuLinLee/stadia-dongle-esp-2/actions/workflows/release.yml)，确认运行对应正确分支和 head SHA。
-2. 检查 `Test USB configuration protocol`。
-3. 检查 `Build with ESP-IDF`。
-4. 成功后检查 `firmware` Artifact；里面应有完整镜像 `firmware-merged.bin`，通常保留 7 天。
+2. 检查 `Test USB configuration protocol` 和 `Build with ESP-IDF` 是否成功。
+3. 对 main 构建，进一步检查 `Create GitHub Release` 与 `Deploy web installer to GitHub Pages` 两个 job。
+4. `firmware` Artifact 通常保留 7 天，适合开发分支/PR。main 成功构建后应在 [Latest Release](https://github.com/WuLinLee/stadia-dongle-esp-2/releases/latest) 找到长期保存的 `firmware-merged.bin`；必须验证附件真实存在。
 
 CI 使用 ESP-IDF 6.0、目标 `esp32s3`，执行 `idf.py build` 并用 esptool 将 bootloader、分区表和应用镜像合并。合并参数当前针对 4 MB flash：bootloader 偏移 `0x0`、partition table `0x8000`、app `0x20000`。更改分区表或应用偏移时，必须同步检查此步骤。
 
@@ -184,9 +195,9 @@ CI 使用 ESP-IDF 6.0、目标 `esp32s3`，执行 `idf.py build` 并用 esptool 
 1. **先看实时状态：**打开 [PR #1](https://github.com/WuLinLee/stadia-dongle-esp-2/pull/1) 和 [最新 Actions](https://github.com/WuLinLee/stadia-dongle-esp-2/actions/workflows/release.yml)，不要相信旧运行或本文件里的快照。
 2. **先让当前分支 CI 通过：**如失败，打开 job 日志定位首个失败断言/编译错误；先判断是实现 bug、测试过期还是环境问题。
 3. **审查代码而非只看测试：**重点审阅 BLE 震动的重试生命周期、回调/缓冲区所有权、多手柄槽位索引，以及虚拟按钮叠加和释放逻辑。
-4. **未经过用户确认，不要擅自合并 PR 或创建正式版本标签。**
-5. 合并到 `main` 后，等 Pages deployment 成功，再访问上文的四个 URL 并确认 `manifest.json` 指向可下载的最新 `firmware-merged.bin`。如仍 404，检查 Pages 设置与部署记录。
-6. 然后按硬件 checklist 做实物回归，并把结果（设备型号、日志、测试游戏和实际结果）更新到文档或 PR 描述中。
+4. **未经用户明确授权，不要擅自合并 PR。**正常 main 构建会自动创建 Release，因此也不要误以为还必须手动打 tag 才能存档固件。
+5. 确认最新 Release 有 `firmware-merged.bin` 附件，并确认 Pages deployment 成功后，访问四个 URL 验证线上资源确实可下载/打开。
+6. 然后按硬件 checklist 做实物回归，并把结果（设备型号、日志、测试游戏和实际结果）更新到文档或 PR 描述中。未经实机执行的项目必须标记为未验证。
 
 ## 用户期望与交付标准
 
@@ -198,7 +209,7 @@ CI 使用 ESP-IDF 6.0、目标 `esp32s3`，执行 `idf.py build` 并用 esptool 
 
 ## 最新变更：Assistant/Capture 单动作按下/松开映射（2026-10-18）
 
-这次改动已通过 [PR #2](https://github.com/WuLinLee/stadia-dongle-esp-2/pull/2) 合并到 `main`（2026-10-18，合并提交 `38dedfebb64edd519dd7244ac3d44acfd4e2a600`）。后续 README、USB 协议文档的明确说明也已提交到 `main`。硬件行为仍需在实际 ESP32-S3 与手柄上验收。这次改动是基于本项目现有 Stadia BLE、TinyUSB、XInput 与 WebHID 结构完成的，不要把整个固件替换成通用手柄固件。对照过的上游 `danzig666/stadia-dongle-esp` 仍采用短按/长按配置；Joypad OS 的 `bt2usb` 是另一套通用蓝牙到 USB 输出架构，不是当前 Stadia + 震动 + WebHID 配置流程的直接替代品。
+这次改动已通过 [PR #2](https://github.com/WuLinLee/stadia-dongle-esp-2/pull/2) 合并到 `main`（2026-10-18，合并提交 `38dedfebb64edd519dd7244ac3d44acfd4e2a600`）。后续 README、USB 协议文档及鼠标模式 2 秒组合键说明也已提交到 `main`。硬件行为仍需在实际 ESP32-S3 与手柄上验收。这次改动是基于本项目现有 Stadia BLE、TinyUSB、XInput 与 WebHID 结构完成的，不要把整个固件替换成通用手柄固件。对照过的上游 `danzig666/stadia-dongle-esp` 仍采用短按/长按配置；Joypad OS 的 `bt2usb` 是另一套通用蓝牙到 USB 输出架构，不是当前 Stadia + 震动 + WebHID 配置流程的直接替代品。
 
 网页源码权威路径是 `main/index.html` 和 `main/webhid_transport.js`，由 `main/CMakeLists.txt` 的 `EMBED_TXTFILES` 嵌入固件；`main/index_html.h` 不在当前构建输入中，是遗留文件。修改配置页时以这两个源码文件为准，除非后续构建真的重新引用遗留头文件。
 

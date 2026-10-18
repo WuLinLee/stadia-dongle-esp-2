@@ -9,7 +9,7 @@
 
 1. **确认硬件：**需要带原生 USB OTG 的 ESP32-S3 开发板，以及支持数据传输的 USB 线。不同板子的 COM/UART 烧录口与原生 USB 口可能是两个不同接口。
 2. **准备手柄：**Stadia 手柄必须已经切换到 Bluetooth（BLE）模式。Google 的蓝牙转换会永久关闭手柄原有的 Stadia Wi-Fi 功能；请在转换前确认自己接受这一变化。
-3. **刷写固件：**用桌面版 Chrome 或 Edge 打开[在线刷入页](https://wulinlee.github.io/stadia-dongle-esp-2/)，连接开发板的烧录串口并按网页提示操作。如果网页暂时无法打开，可从 [GitHub Actions](https://github.com/WuLinLee/stadia-dongle-esp-2/actions/workflows/release.yml) 下载成功构建的 `firmware` Artifact。
+3. **刷写固件：**用桌面版 Chrome 或 Edge 打开[在线刷入页](https://wulinlee.github.io/stadia-dongle-esp-2/)，连接开发板的烧录串口并按网页提示操作。如果需要手动下载，优先从 [最新 GitHub Release](https://github.com/WuLinLee/stadia-dongle-esp-2/releases/latest) 下载长期保存的 `firmware-merged.bin`；只有在验证某个特定开发分支/提交时，才去对应的 [GitHub Actions 运行记录](https://github.com/WuLinLee/stadia-dongle-esp-2/actions/workflows/release.yml) 下载临时 `firmware` Artifact（通常保留 7 天）。
 4. **切换 USB 接口：**刷写完成后，按开发板说明改接原生 USB OTG 接口，再连接电脑使用。
 5. **配对和配置：**打开[USB 配置页](https://wulinlee.github.io/stadia-dongle-esp-2/config.html)，连接接收器、开始配对，并按页面提示操作手柄。
 6. **验证输入：**Windows 可运行 `joy.cpl`，确认系统能看到 Xbox 360 兼容手柄，再测试按键和震动。
@@ -55,22 +55,18 @@
 - [本地构建](#开发者本地构建可选)
 
 
-> **普通使用者不需要在自己的电脑上编译。** 本项目配置了 GitHub Actions：每次推送开发分支或提交 Pull Request 时，GitHub 云端服务器会运行自动测试并尝试编译 ESP32-S3 固件。编译产物可以从 Actions 页面下载。
+> **普通使用者不需要在自己的电脑上编译。** 本项目使用 GitHub Actions 自动测试并构建 ESP32-S3 固件。每次成功的 `main` 分支构建都会自动创建一个长期保存的 GitHub Release，并上传完整刷写镜像；`codex/**` 开发分支和 Pull Request 主要用于测试，可从对应运行记录下载短期 Artifact。
 
 ## 我应该怎么做？
 
 ### 查看 GitHub 云端编译结果
 
-1. 打开 [GitHub Actions：Build & Release](https://github.com/WuLinLee/stadia-dongle-esp-2/actions/workflows/release.yml)。
-2. 找最新的任务，并确认它对应你要测试的分支或提交。
-3. 查看结果：
-   - **绿色勾号 / Success**：自动测试和固件编译通过。
-   - **红色叉号 / Failure**：测试或编译失败，不要刷这个版本。
-   - **黄色圆圈 / In progress**：GitHub 仍在执行任务。
-4. 打开成功的任务，在页面的 **Artifacts** 区域下载名为 `firmware` 的压缩包。
-5. 解压后会得到 `firmware-merged.bin`，这是 ESP32-S3 的完整刷写镜像。
+1. 打开 [GitHub Actions：Build & Release](https://github.com/WuLinLee/stadia-dongle-esp-2/actions/workflows/release.yml)，选择与目标分支和提交 SHA 对应的运行；不要只看最上方的旧绿色记录。
+2. 查看 `Test USB configuration protocol` 和 `Build with ESP-IDF` 是否都成功。失败或仍在运行的构建，不应当作为已验证固件刷入。
+3. **普通使用者 / 最新正式构建：**打开 [最新 GitHub Release](https://github.com/WuLinLee/stadia-dongle-esp-2/releases/latest)，下载 `firmware-merged.bin`。该文件是从偏移 `0x0` 开始刷写的完整 ESP32-S3 镜像。
+4. **验证 PR 或开发分支：**进入那个精确 Actions 运行的 **Artifacts** 区域，下载名为 `firmware` 的压缩包，并确认它来自正确的 head SHA。
 
-开发版 Artifact 通常保留 7 天。**云端编译成功不等于已通过真机测试**；蓝牙配对、游戏震动和按键映射仍需实际设备验证。
+Actions Artifact 通常只保留 7 天；Release 附件用于长期保存正式构建。**CI 通过不等于真机验收通过**；蓝牙配对、游戏震动和按键映射仍需在实际开发板与手柄上验证。
 
 ### 使用在线刷入网页
 
@@ -142,27 +138,27 @@
 - [ESP-IDF](https://github.com/espressif/esp-idf)：ESP32-S3 固件构建系统。CI 中使用 ESP-IDF 6.0。
 - [espressif/esp-idf-ci-action](https://github.com/espressif/esp-idf-ci-action)：让 GitHub Actions 云端环境运行 ESP-IDF 编译。
 - [ESP Web Tools](https://github.com/esphome/esp-web-tools)：浏览器内的串口刷写界面组件。
-- GitHub Actions 的 Artifact 和 Release 流程：保存开发版构建产物，并在发布版本时提供下载。
+- GitHub Actions 的 Artifact 和 Release 流程：Artifact 供短期开发测试；每次成功的 `main` 构建会自动发布固件到长期保存的 GitHub Release。
 
 ## 自动编译是怎么工作的？
 
 工作流文件位于 [`.github/workflows/release.yml`](.github/workflows/release.yml)。它不是只写在说明里的计划，而是仓库中配置的 GitHub Actions 自动化工作流。
 
-1. **触发：**推送到 `main` 或 `codex/**` 分支、创建 Pull Request，或推送以 `v` 开头的版本标签时触发。
+1. **触发：**推送到 `main` 或 `codex/**` 分支、创建 Pull Request、推送以 `v` 开头的标签，或手动运行工作流时触发。
 2. **自动测试：**执行 `npm test`，检查 USB 配置协议、固件与 JavaScript 动作编号的一致性及相关页面约定。
 3. **云端编译：**GitHub 的 Ubuntu 服务器使用 ESP-IDF 6.0、目标 `esp32s3` 执行 `idf.py build`。
 4. **生成完整镜像：**当前 workflow 将 bootloader、分区表和应用镜像合并成 `firmware-merged.bin`。注意：与上游相比，目前还没有把 `build/ota_data_initial.bin` 合入，也没有生成 `stadia-dongle-ota.bin`；详见[上游差异与待检查项](#与上游网页刷写器--固件有什么区别)。
 5. **保存结果：**上传名为 `firmware` 的 Actions Artifact，供开发者下载；Artifact 通常保留 7 天。
-6. **正式发布：**推送 `v*` 标签时，工作流会建立 GitHub Release 并附加固件文件。
-7. **网页更新：**`main` 分支或版本标签的 Pages 部署流程，会准备刷入页、USB 配置页和固件，再尝试更新 GitHub Pages。
+6. **正式发布：**每次 `main` 分支构建成功后都会自动生成唯一版本标签（UTC 日期 + GitHub Actions run number，例如 `v2026.10.18.84`），创建/更新 GitHub Release，并上传 `firmware-merged.bin`；该 Release 会标记为 Latest。推送 `v*` 标签时则沿用该标签发布。
+7. **网页更新：**只有在固件构建成功且 ref 是 `main` 或 `v*` 标签时，Pages job 才会把本次构建的完整镜像、刷写页和 USB 配置页部署到 GitHub Pages。`codex/**` 和 Pull Request 不会覆盖正式网页。
 
 若编译失败，请打开 [Actions 页面](https://github.com/WuLinLee/stadia-dongle-esp-2/actions/workflows/release.yml)，进入失败任务查看具体步骤。重点区分 `Test USB configuration protocol`（自动测试）与 `Build with ESP-IDF`（固件编译）。不要把以前留存的固件当成失败任务产生的新版本。
 
 **版本概念不要混淆：**
 
 - **开发版 Artifact：**单次 Actions 运行生成的测试固件，适合开发调试。
-- **GitHub Release：**由 `v*` 标签创建的发布包。
-- **在线安装器：**由 GitHub Pages 提供；开发分支编译成功不会立即更新它。
+- **GitHub Release：**每次成功的 `main` 构建会自动创建一个最新 Release；显式推送 `v*` 标签也会发布。Release 附件长期保存，适合手动下载。
+- **在线安装器：**由 GitHub Pages 提供；只有成功的 `main` 或 `v*` 构建会触发部署。`codex/**` 开发分支和 PR 的成功构建不会更新正式网页。
 
 ## 刷入固件
 
@@ -239,9 +235,17 @@
 
 ## 维护者 / 下一个 AI：接手开发
 
-如果要继续修改固件、WebHID 协议、按键映射或发布流程，请先阅读 [`AI_HANDOFF.md`](AI_HANDOFF.md)。其中记录了模块职责、动作 ID 跨语言一致性、震动处理约束、CI / Pages 发布条件、常见故障和推荐的接手顺序。
+如果要继续修改固件、WebHID 协议、按键映射或发布流程，请先读 [`AI_HANDOFF.md`](AI_HANDOFF.md) 和 [`PRODUCT.md`](PRODUCT.md)，再检查对应的源码与测试。本文面向使用者的说明不取代交接文档中更细的约束。
 
-PR #1 已于 2026-10-17 合并到 `main`。开始开发前，请重新确认[最新 Actions 运行](https://github.com/WuLinLee/stadia-dongle-esp-2/actions/workflows/release.yml)及对应提交；不要把历史 PR 或旧的绿色运行当作当前状态。网页是否可用必须以成功的 Pages 部署和实际 URL 检查为准；自动测试或固件编译通过不代表网页已经上线，也不代表真机验证已通过。
+下一个 AI 应按这个顺序接手：
+
+1. **先核实实时状态：**打开 [最新 Actions 运行](https://github.com/WuLinLee/stadia-dongle-esp-2/actions/workflows/release.yml)、[Releases](https://github.com/WuLinLee/stadia-dongle-esp-2/releases) 和 [main 分支](https://github.com/WuLinLee/stadia-dongle-esp-2/tree/main)，确认最新提交 SHA、build、release 和 Pages 三个 job；文档里的日期、PR 记录和旧 SHA 只是历史线索。
+2. **先理解关键约束：**阅读 `.github/workflows/release.yml`、`partitions.csv`、`main/web_server.c`、`main/button_actions.c`、`main/bridge.c`、`main/config_store.h`、`main/usb_config_protocol.c`、`main/webhid_transport.js` 及相关 `tests/*.test.mjs`，不要只依据 README 推断实现细节。
+3. **改动要有合约测试：**运行 `npm test`，同步检查固件与网页动作 ID/协议字段；动作枚举和 NVS 数据布局不可随意重排。固件变更还要让 ESP-IDF 6.0 的 CI 构建成功。
+4. **检查正式发布与网页：**`main` 构建成功会自动创建 Latest Release，并上传 `firmware-merged.bin`；不要把 7 天的 Actions Artifact 当长期下载。还要确认 Pages 部署 job 成功，并实际检查安装器、`manifest.json`、固件 URL 和 `config.html`。
+5. **保留未完成事项的事实边界：**CI 和部署成功都不等于真机验收。尤其检查当前完整镜像未合入 `build/ota_data_initial.bin`、Release 未生成 app-only `stadia-dongle-ota.bin` 的已知差异；修改前先追踪 `main/web_server.c` OTA handler 和网页 OTA 上传流程，不能把完整镜像当 OTA 应用文件上传。
+
+截至最近一次核对，PR #1 与相关功能 PR 已经合并到 `main`。每次接手仍须以 [实时 Actions](https://github.com/WuLinLee/stadia-dongle-esp-2/actions/workflows/release.yml) 和线上验证为准；自动测试或固件编译通过不代表网页在线可用，更不代表真机验证已通过。
 
 ## 开发者：本地构建（可选）
 
