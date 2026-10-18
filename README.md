@@ -217,6 +217,21 @@ Actions Artifact 通常只保留 7 天；Release 附件用于长期保存正式�
 
 不需要。通过 USB 配置页修改并保存即可。
 
+## 文档导航：哪个文件该看？
+
+当前 `main` 分支只有一份名为 `README.md` 的 README：就是本文件。其他几个常被一起看到的 Markdown 文件不是重复 README，而是按用途拆分的文档。**不要把它们合并成一份，也不要只改其中一份就假设其他文档已同步。**
+
+| 文件 | 面向谁 | 应该放什么 |
+|---|---|---|
+| [`README.md`](README.md) | 普通使用者 + 接手者入口 | 项目概览、刷机/使用说明、重要风险提示、PR #4 历史摘要、其他文档入口；保持导航简明 |
+| [`AI_HANDOFF.md`](AI_HANDOFF.md) | 下一个 AI / 维护者 | 架构索引、协议和 NVS 兼容约束、CI/Release/Pages 排查步骤、待核实事项；动态状态必须重新查证 |
+| [`PRODUCT.md`](PRODUCT.md) | UI/产品开发者 | 产品目标、交互原则、可访问性与设计边界；不要放临时 CI 状态 |
+| [`docs/usb-config-protocol.md`](docs/usb-config-protocol.md) | 固件与网页开发者 | WebHID 协议字段、命令、状态码和兼容性约束 |
+| [`docs/hardware-test-checklist.md`](docs/hardware-test-checklist.md) | 真机测试者 | 可逐项执行的硬件回归清单，并记录哪些测试确实完成 |
+| [`.github/workflows/release.yml`](.github/workflows/release.yml) | CI/发布维护者 | 实际自动测试、固件构建、Release 与 Pages 部署流程（这是工作流文件，不是说明文档） |
+
+**PR #4 说明：**请继续阅读下方“维护者 / 下一个 AI：接手开发”里的交接记录。PR #4 已关闭且未合并；README 内容曾单独复制到 `main`，这不代表分支上的 `AI_HANDOFF.md` 或 `PRODUCT.md` 也已进入 `main`。比较它们时应逐文件审查，不要整支合并。
+
 ## 项目文件在哪里？
 
 | 路径 | 作用 |
