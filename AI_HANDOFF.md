@@ -17,7 +17,7 @@
 ## 仓库与当前工作状态
 
 - 仓库：<https://github.com/WuLinLee/stadia-dongle-esp-2>
-- 主分支：`main`。PR #1、#2、#3 的功能提交现已合并；鼠标模式组合键最终规则不是早期 PR 描述中的 5 秒，而是“十字键下 + Assistant 或 Capture 任意一个，连续 2 秒”。当前记录的基准提交为 `d8bc5f4600417f7fbb13404d3a745c8ad5931f40`（发布自动化工作流）；基准运行 [39113430355](https://github.com/WuLinLee/stadia-dongle-esp-2/actions/runs/39113430355) 的 Build、Create GitHub Release 和 Deploy Pages jobs 均成功，Release 为 [v2026.10.18.84](https://github.com/WuLinLee/stadia-dongle-esp-2/releases/tag/v2026.10.18.84)，内含 `firmware-merged.bin`。本文档提交本身会更新 main，并可能触发下一次自动构建/发布，因此开始工作时务必重新核对 [当前 main](https://github.com/WuLinLee/stadia-dongle-esp-2/commits/main)、[Actions](https://github.com/WuLinLee/stadia-dongle-esp-2/actions/workflows/release.yml) 和 [Latest Release](https://github.com/WuLinLee/stadia-dongle-esp-2/releases/latest)。开发分支 `codex/**` 主要用于测试构建，不要假设它是待合并状态。
+- 主分支：`main`。PR #1、#2、#3 的功能提交现已合并；鼠标模式组合键最终规则不是早期 PR 描述中的 5 秒，而是“十字键下 + Assistant 或 Capture 任意一个，连续 2 秒”。**最近核验快照（2026-10-18 09:10 UTC）**：main HEAD 为 [`684241dc20d05dbcb45a6ae800508496e1a9f1a7`](https://github.com/WuLinLee/stadia-dongle-esp-2/commit/684241dc20d05dbcb45a6ae800508496e1a9f1a7)，运行 [39113997102](https://github.com/WuLinLee/stadia-dongle-esp-2/actions/runs/39113997102) 的构建、Release 与 Pages 三个 job 均成功，Latest Release 为 [`v2026.10.18.85`](https://github.com/WuLinLee/stadia-dongle-esp-2/releases/tag/v2026.10.18.85)，附件包含 `firmware-merged.bin`。这只是带时间戳的快照；每次开始工作都要重新核对 [当前 main](https://github.com/WuLinLee/stadia-dongle-esp-2/commits/main)、[Actions](https://github.com/WuLinLee/stadia-dongle-esp-2/actions/workflows/release.yml) 和 [Latest Release](https://github.com/WuLinLee/stadia-dongle-esp-2/releases/latest)。文档 PR 合并到 main 后会再次触发构建，可能产生新 Release 和 Pages 部署，不能假定这里记下的 SHA、运行号或标签仍为最新。开发分支 `codex/**` 主要用于测试构建，不要假设它是待合并状态。
 - 历史 PR：[#1 — fix: improve Stadia rumble and add XInput button mapping](https://github.com/WuLinLee/stadia-dongle-esp-2/pull/1)
 - CI 实时状态：<https://github.com/WuLinLee/stadia-dongle-esp-2/actions/workflows/release.yml>
 - 工作流：[`.github/workflows/release.yml`](.github/workflows/release.yml)
@@ -26,7 +26,7 @@
 
 ### 已知的 Pages/CI 注意事项
 
-1. 过去曾有在线刷机网站返回 “There isn't a GitHub Pages site here” 的 404 报告；基准运行 `39113430355` 的 Pages job 现在已成功，但仍需在每次交付时实测首页、清单、固件文件和配置页，不要仅凭 job 绿勾声称线上所有 URL 均可用。
+1. 过去曾有在线刷机网站返回 “There isn't a GitHub Pages site here” 的 404 报告；最近核验快照中的运行 `39113997102` 的 Pages job 已成功，但这不替代实际访问首页、清单、固件文件和配置页。每次交付仍须实测 URL，不能只凭 job 绿勾声称线上所有资源都可用。
 2. 开发分支 `codex/**` 的构建只运行测试、编译并上传 Actions Artifact；它不会发布 GitHub Pages。这是有意的。Pages 发布只应发生在 `main` 或 `v*` 标签上。
 3. Pages 部署必须依赖成功的固件构建。工作流条件应保持为“`needs.build-firmware.result == 'success'` 且 ref 是 main 或版本标签”，不要恢复成无条件 `always()`，否则构建失败时也可能把缺少新固件的站点部署出去。
 4. 上述 Pages 条件有对应的合约测试 `tests/pages_contract.test.mjs`。修改 workflow 条件时，同步更新测试，使测试约束正确的安全行为，而不是为了让测试通过而恢复有问题的逻辑。
@@ -36,7 +36,7 @@
 
 这是当前 workflow 的实际行为，不要按旧文档中“只有手动推送 `v*` 标签才发布”的说明操作：
 
-- 推送到 `main` 且构建成功后，`Create GitHub Release` job 会自动生成版本标签 `v$(date -u +%Y.%m.%d).${GITHUB_RUN_NUMBER}`，例如基准运行生成的 `v2026.10.18.84`；`target_commitish` 指向该构建对应的提交。
+- 推送到 `main` 且构建成功后，`Create GitHub Release` job 会自动生成版本标签 `v$(date -u +%Y.%m.%d).${GITHUB_RUN_NUMBER}`，例如 `vYYYY.MM.DD.RUN_NUMBER`；具体标签由 UTC 日期和 Actions run number 决定，Latest Release 会随着后续成功的 main 构建继续更新；`target_commitish` 指向该构建对应的提交。
 - Release 会被标记为 Latest，并附加完整刷写镜像 `firmware-merged.bin`。正式下载入口是 [Latest Release](https://github.com/WuLinLee/stadia-dongle-esp-2/releases/latest)；具体附件下载 URL 应从真实 Release assets 中核对，不能猜文件名/标签。
 - 推送 `v*` 标签时沿用该标签创建/更新 Release；Pages 也只在固件构建成功且 ref 是 `main` 或版本标签时部署。
 - `codex/**` 分支和 Pull Request 会运行测试、构建并保存名为 `firmware` 的 Actions Artifact，但不会创建正式 Release 或覆盖正式 Pages。Artifact 保留 7 天，不能替代 Release 长期存档。
@@ -84,6 +84,7 @@
 | `docs/index.html`, `docs/manifest.json` | 独立在线刷机页和刷机清单。 |
 | `tests/firmware_contract.test.mjs` | 固件与 JS 协议/动作名称的一致性检查。 |
 | `tests/pages_contract.test.mjs` | Pages 文件准备、链接和部署条件检查。 |
+| `tests/webhid_transport.test.mjs` | WebHID 报文解析、握手/轮询、并发锁、协议错误和断连路径测试。 |
 | `docs/hardware-test-checklist.md` | 实物 USB/WebHID/BLE/按键/震动回归清单。 |
 | `.github/workflows/release.yml` | 云端自动测试、编译、Artifact、Release 和 Pages 部署。 |
 
@@ -163,7 +164,7 @@
 npm test
 ```
 
-它使用 Node 内置 test runner（`node --test tests/*.test.mjs`），检查 USB 配置协议命令值、能力位、动作名称、HID 报告描述符、页面约定、Wi-Fi 默认行为和 Pages 发布逻辑。它们是合约/源码测试，并不模拟真实 BLE 无线链路，也不能取代板上验证。
+它使用 Node 内置 test runner（`node --test tests/*.test.mjs`），运行 `tests/firmware_contract.test.mjs`、`tests/webhid_transport.test.mjs` 与 `tests/pages_contract.test.mjs`：覆盖 USB 命令值/能力位/动作 ID、HID 报告描述符、页面与 Wi-Fi 默认行为、WebHID 报文解析和命令握手/轮询/锁/断连错误，以及 Pages 部署条件。这些是合约/源码与模拟设备测试，并不模拟真实 BLE 无线链路、真实游戏震动或 OTA 冷启动/回滚，也不能取代板上验证。
 
 ### 云端固件构建
 
@@ -192,7 +193,7 @@ CI 使用 ESP-IDF 6.0、目标 `esp32s3`，执行 `idf.py build` 并用 esptool 
 
 ## 建议下一个 AI 按此顺序继续
 
-1. **先看实时状态：**打开 [PR #1](https://github.com/WuLinLee/stadia-dongle-esp-2/pull/1) 和 [最新 Actions](https://github.com/WuLinLee/stadia-dongle-esp-2/actions/workflows/release.yml)，不要相信旧运行或本文件里的快照。
+1. **先看实时状态：**先检查 [main 最新提交](https://github.com/WuLinLee/stadia-dongle-esp-2/commits/main)、[最新 Actions](https://github.com/WuLinLee/stadia-dongle-esp-2/actions/workflows/release.yml)、[Latest Release](https://github.com/WuLinLee/stadia-dongle-esp-2/releases/latest)，并实测 [安装器](https://wulinlee.github.io/stadia-dongle-esp-2/)、[manifest](https://wulinlee.github.io/stadia-dongle-esp-2/manifest.json)、[固件文件](https://wulinlee.github.io/stadia-dongle-esp-2/firmware-merged.bin) 和 [USB 配置页](https://wulinlee.github.io/stadia-dongle-esp-2/config.html)。PR #1 是已合并的历史 PR，不应作为每次接手的首要检查项。
 2. **先让当前分支 CI 通过：**如失败，打开 job 日志定位首个失败断言/编译错误；先判断是实现 bug、测试过期还是环境问题。
 3. **审查代码而非只看测试：**重点审阅 BLE 震动的重试生命周期、回调/缓冲区所有权、多手柄槽位索引，以及虚拟按钮叠加和释放逻辑。
 4. **未经用户明确授权，不要擅自合并 PR。**正常 main 构建会自动创建 Release，因此也不要误以为还必须手动打 tag 才能存档固件。
@@ -207,7 +208,7 @@ CI 使用 ESP-IDF 6.0、目标 `esp32s3`，执行 `idf.py build` 并用 esptool 
 - 不要求普通用户在本地配置 ESP-IDF；优先提供 Actions 云端构建产物和可用的在线安装器。
 - 每次交付都要区分代码、CI、部署、真机验证四种状态，并给出可以点击核查的链接。
 
-## 最新变更：Assistant/Capture 单动作按下/松开映射（2026-10-18）
+## 已合入变更记录：Assistant/Capture 单动作按下/松开映射（2026-10-18）
 
 这次改动已通过 [PR #2](https://github.com/WuLinLee/stadia-dongle-esp-2/pull/2) 合并到 `main`（2026-10-18，合并提交 `38dedfebb64edd519dd7244ac3d44acfd4e2a600`）。后续 README、USB 协议文档及鼠标模式 2 秒组合键说明也已提交到 `main`。硬件行为仍需在实际 ESP32-S3 与手柄上验收。这次改动是基于本项目现有 Stadia BLE、TinyUSB、XInput 与 WebHID 结构完成的，不要把整个固件替换成通用手柄固件。对照过的上游 `danzig666/stadia-dongle-esp` 仍采用短按/长按配置；Joypad OS 的 `bt2usb` 是另一套通用蓝牙到 USB 输出架构，不是当前 Stadia + 震动 + WebHID 配置流程的直接替代品。
 
@@ -227,7 +228,7 @@ CI 使用 ESP-IDF 6.0、目标 `esp32s3`，执行 `idf.py build` 并用 esptool 
 验证顺序：先运行 `npm test`，再等待 `.github/workflows/release.yml` 的 ESP-IDF 构建成功，最后按 `docs/hardware-test-checklist.md` 实机测试按住/松开、断连释放、鼠标模式切换前后状态、双手柄与震动。CI 构建通过不等于已完成真机验收。
 
 
-## 当前改动：鼠标模式组合键改为十字键下 + Assistant/Capture 任一键，2 秒
+## 已合入变更记录：鼠标模式组合键改为十字键下 + Assistant/Capture 任一键，2 秒（2026-10-18）
 
 - 连续按住“十字键下 + Assistant”或“十字键下 + Capture”任一组合 2 秒切换鼠标模式；组合条件中断时重置计时。
 - 原有震动实现、震动强度换算和 BLE 写入重试逻辑不属于此次修改，必须保持不变。
