@@ -17,7 +17,7 @@
 ## 仓库与当前工作状态
 
 - 仓库：<https://github.com/WuLinLee/stadia-dongle-esp-2>
-- 主分支：`main`。PR #1 于 2026-10-17 合并（`f755823735f31b7625a358b5650860d992f3ba41`）；PR #2（Assistant/Capture 按住映射和 5 秒鼠标模式组合键）；当前 PR #3 将鼠标组合键调整为 2 秒于 2026-10-18 合并，合并提交为 `38dedfebb64edd519dd7244ac3d44acfd4e2a600`。PR #2 后又补充了 README 与 USB 协议文档，实际最新 `main` SHA 和 Pages 部署状态仍须通过 Actions 实时核对。开发分支 `codex/rumble-write-reliability` 是历史工作分支，不要假设它仍是待合并状态。
+- 主分支：`main`。PR #1 于 2026-10-17 合并（`f755823735f31b7625a358b5650860d992f3ba41`）；PR #2（Assistant/Capture 按住映射和 5 秒鼠标模式组合键）于 2026-10-18 合并，合并提交为 `38dedfebb64edd519dd7244ac3d44acfd4e2a600`。PR #2 后又补充了 README 与 USB 协议文档，实际最新 `main` SHA 和 Pages 部署状态仍须通过 Actions 实时核对。开发分支 `codex/rumble-write-reliability` 是历史工作分支，不要假设它仍是待合并状态。
 - 历史 PR：[#1 — fix: improve Stadia rumble and add XInput button mapping](https://github.com/WuLinLee/stadia-dongle-esp-2/pull/1)
 - CI 实时状态：<https://github.com/WuLinLee/stadia-dongle-esp-2/actions/workflows/release.yml>
 - 工作流：[`.github/workflows/release.yml`](.github/workflows/release.yml)
@@ -215,3 +215,8 @@ CI 使用 ESP-IDF 6.0、目标 `esp32s3`，执行 `idf.py build` 并用 esptool 
 
 验证顺序：先运行 `npm test`，再等待 `.github/workflows/release.yml` 的 ESP-IDF 构建成功，最后按 `docs/hardware-test-checklist.md` 实机测试按住/松开、断连释放、鼠标模式切换前后状态、双手柄与震动。CI 构建通过不等于已完成真机验收。
 
+
+## 当前改动：鼠标模式组合键改为 2 秒
+
+- Assistant + Capture 连续同时按住 2 秒切换鼠标模式；提前松开任何一个按键都会重置计时。
+- 原有震动实现、震动强度换算和 BLE 写入重试逻辑不属于此次修改，必须保持不变。
