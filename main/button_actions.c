@@ -268,9 +268,9 @@ static void button_actions_task(void *arg)
                                   &mouse_combo_triggered[idx]);
             } else {
                 update_single_button(&assistant[idx], idx, action_slot(idx, false),
-                                     st.assistant, cfg.assistant_short_action);
+                                     st.assistant, cfg.assistant_action);
                 update_single_button(&capture[idx], idx, action_slot(idx, true),
-                                     st.capture, cfg.capture_short_action);
+                                     st.capture, cfg.capture_action);
             }
         }
 
