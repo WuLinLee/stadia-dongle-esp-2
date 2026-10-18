@@ -116,15 +116,15 @@
 
 | 偏移 | 长度 | 含义 |
 |---:|---:|---|
-| 0 | 1 | Assistant 短按动作 |
-| 1 | 1 | Assistant 长按动作 |
-| 2 | 1 | Capture 短按动作 |
-| 3 | 1 | Capture 长按动作 |
-| 4 | 2 | 长按判定时间，300–5000 ms |
+| 0 | 1 | Assistant 动作 |
+| 1 | 1 | 旧版保留字段（写 `none`） |
+| 2 | 1 | Capture 动作 |
+| 3 | 1 | 旧版保留字段（写 `none`） |
+| 4 | 2 | 旧版保留字段；写入 1000，新版忽略 |
 | 6 | 2 | Web UI 自动关闭时间，15–1800 秒 |
 | 8 | 1 | bit 0：USB 休眠时关闭 AP；bit 1：无绑定手柄时自动启动 Web UI |
 
-动作编号必须与 `dongle_action_t` 保持一致，自动合约测试会比较 C 与 JavaScript 两端的顺序。新增的 `gamepad_*` 动作会向对应 XInput 手柄报告叠加一个约 20 ms 的虚拟按钮按下脉冲；可选 A/B/X/Y、LB/RB、Start/Back、L3/R3、Guide、十字键和完整 LT/RT。叠加层不覆盖真实按键状态，断开或发出中立报告时会清空，以免留下卡键。
+动作编号必须与 `dongle_action_t` 保持一致，自动合约测试会比较 C 与 JavaScript 两端的顺序。新配置只使用偏移 0 的 Assistant 动作与偏移 2 的 Capture 动作；偏移 1、3 和 4–5 是协议 v1 旧版长按配置的保留字段，新版固件忽略它们，但浏览器继续写入兼容值。键盘键、媒体键和 `gamepad_*` 动作都在对应物理按键按下时保持输出，释放时发送松开状态；XInput 可映射 A/B/X/Y、LB/RB、Start/Back、L3/R3、Guide、十字键和 LT/RT。LT/RT 仍是全按强度。
 
 ## 兼容性与限制
 
