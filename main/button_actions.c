@@ -249,11 +249,17 @@ static void button_actions_task(void *arg)
             if (mouse_combo_suppressed[idx]) {
                 update_suppressed_combo(&assistant[idx], st.assistant);
                 update_suppressed_combo(&capture[idx], st.capture);
-                if (!st.assistant && !st.capture) {
-                    mouse_combo_suppressed[idx] = false;
+                if (!mouse_combo) {
+                    /* The chord must stay continuously held for all five seconds. */
                     mouse_combo_start_us[idx] = 0;
                     mouse_combo_triggered[idx] = false;
+                }
+                if (!st.assistant && !st.capture) {
+                    mouse_combo_suppressed[idx] = false;
                     ESP_LOGI(TAG, "usb %u mouse combo released", idx);
+                } else if (mouse_combo && mouse_combo_start_us[idx] == 0 &&
+                           !mouse_combo_triggered[idx]) {
+                    mouse_combo_start_us[idx] = now;
                 }
             } else if (mouse_combo) {
                 enter_mouse_combo(&assistant[idx], &capture[idx], idx, now,
