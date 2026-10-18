@@ -149,7 +149,7 @@ Actions Artifact 通常只保留 7 天；Release 附件用于长期保存正式�
 3. **云端编译：**GitHub 的 Ubuntu 服务器使用 ESP-IDF 6.0、目标 `esp32s3` 执行 `idf.py build`。
 4. **生成完整镜像：**当前 workflow 将 bootloader、分区表和应用镜像合并成 `firmware-merged.bin`。注意：与上游相比，目前还没有把 `build/ota_data_initial.bin` 合入，也没有生成 `stadia-dongle-ota.bin`；详见[上游差异与待检查项](#与上游网页刷写器--固件有什么区别)。
 5. **保存结果：**上传名为 `firmware` 的 Actions Artifact，供开发者下载；Artifact 通常保留 7 天。
-6. **正式发布：**每次 `main` 分支构建成功后都会自动生成唯一版本标签（UTC 日期 + GitHub Actions run number，例如 `v2026.10.18.84`），创建/更新 GitHub Release，并上传 `firmware-merged.bin`；该 Release 会标记为 Latest。推送 `v*` 标签时则沿用该标签发布。
+6. **正式发布：**每次 `main` 分支构建成功后都会自动生成唯一版本标签（标签格式为 `vYYYY.MM.DD.RUN_NUMBER`，UTC 日期与 Actions run number 共同决定；实际版本号以 [Latest Release](https://github.com/WuLinLee/stadia-dongle-esp-2/releases/latest) 为准），创建/更新 GitHub Release，并上传 `firmware-merged.bin`；该 Release 会标记为 Latest。推送 `v*` 标签时则沿用该标签发布。
 7. **网页更新：**只有在固件构建成功且 ref 是 `main` 或 `v*` 标签时，Pages job 才会把本次构建的完整镜像、刷写页和 USB 配置页部署到 GitHub Pages。`codex/**` 和 Pull Request 不会覆盖正式网页。
 
 若编译失败，请打开 [Actions 页面](https://github.com/WuLinLee/stadia-dongle-esp-2/actions/workflows/release.yml)，进入失败任务查看具体步骤。重点区分 `Test USB configuration protocol`（自动测试）与 `Build with ESP-IDF`（固件编译）。不要把以前留存的固件当成失败任务产生的新版本。
@@ -231,7 +231,9 @@ Actions Artifact 通常只保留 7 天；Release 附件用于长期保存正式�
 | `main/index.html` | 中文 USB 配置界面 |
 | `docs/index.html` / `docs/manifest.json` | 在线安装器与固件清单 |
 | `.github/workflows/release.yml` | GitHub 云端自动测试、编译、Release 和 Pages 部署 |
-| `tests/firmware_contract.test.mjs` | 自动合约测试 |
+| `tests/firmware_contract.test.mjs` | 协议命令/能力位、动作 ID 顺序、HID 描述符与固件/页面源码约定 |
+| `tests/webhid_transport.test.mjs` | WebHID 报文解析、命令握手、待处理轮询、页面并发锁和断连/错误路径 |
+| `tests/pages_contract.test.mjs` | Pages 文件准备、部署条件和配置页运行时依赖约定 |
 
 ## 维护者 / 下一个 AI：接手开发
 
@@ -247,12 +249,31 @@ Actions Artifact 通常只保留 7 天；Release 附件用于长期保存正式�
 
 截至最近一次核对，PR #1 与相关功能 PR 已经合并到 `main`。每次接手仍须以 [实时 Actions](https://github.com/WuLinLee/stadia-dongle-esp-2/actions/workflows/release.yml) 和线上验证为准；自动测试或固件编译通过不代表网页在线可用，更不代表真机验证已通过。
 
-## 开发者：本地构建（可选）
+## 开发者验证（可选）
 
-普通用户不需要本地构建。若需在电脑上开发，安装 [ESP-IDF](https://github.com/espressif/esp-idf) 6.0 并准备 Node.js，然后运行：
+普通用户不需要本地构建。修改固件、WebHID 协议、配置页面或发布工作流后，建议先运行自动测试，再进行相应的 ESP-IDF 构建和真机验收。
+
+### 自动测试
+
+在仓库根目录运行：
 
 ```sh
 npm test
+```
+
+该命令执行 `node --test tests/*.test.mjs`，目前包含三组测试：
+
+- `firmware_contract.test.mjs`：检查固件与 JavaScript 的命令值、能力位和动作名称顺序，并检查 HID 描述符及相关页面约定。
+- `webhid_transport.test.mjs`：用模拟 WebHID 设备检查报文解析、握手与待处理轮询、并发锁、协议错误和断连路径。
+- `pages_contract.test.mjs`：检查独立 USB 配置页的发布准备、Pages 部署条件，以及配置页没有外部运行时依赖。
+
+这些是源码/合约测试，不会连接真实 ESP32-S3，也不会验证 BLE 无线链路、实际游戏震动、完整刷写后的冷启动或设备端 OTA 回滚。硬件相关改动仍需按照[真机验收清单](docs/hardware-test-checklist.md)执行，并如实记录未执行的测试。
+
+### 本地固件构建
+
+若需在电脑上开发，安装 [ESP-IDF](https://github.com/espressif/esp-idf) 6.0 并准备 Node.js，然后运行：
+
+```sh
 idf.py set-target esp32s3
 idf.py build
 idf.py -p <串口> flash
