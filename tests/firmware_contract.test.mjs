@@ -154,6 +154,10 @@ test("Assistant/Capture outputs stay held until physical key-up", async () => {
   assert.doesNotMatch(buttons, /vTaskDelay\(pdMS_TO_TICKS\(20\)\)/);
   assert.match(buttons, /> 5000000/);
   assert.match(hid, /0x75, 0x10, 0x95, 0x04, 0x81, 0x00/);
+  assert.match(hid, /Keep logical held-key state across USB bus resets/);
+  const ble = await source("../main/ble_central.c");
+  assert.match(ble, /const stadia_controller_state_t released_state = \{0\};[\s\S]*?button_actions_on_state\(usb, &released_state\)/);
+  assert.match(buttons, /The chord must stay continuously held for all five seconds/);
 });
 
 test("Wi-Fi AP is opt-in, temporary, and still recoverable", async () => {
