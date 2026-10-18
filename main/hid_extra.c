@@ -235,8 +235,7 @@ static bool hid_extra_driver_deinit(void)
 {
     s_open = false;
     s_ep_in = 0;
-    memset(s_keyboard_slots, 0, sizeof(s_keyboard_slots));
-    memset(s_consumer_slots, 0, sizeof(s_consumer_slots));
+    /* Keep logical held-key state across USB unmounts; retry reports on remount. */
     s_keyboard_dirty = true;
     s_consumer_dirty = true;
     return true;
@@ -247,8 +246,7 @@ static void hid_extra_driver_reset(uint8_t rhport)
     (void)rhport;
     s_open = false;
     s_ep_in = 0;
-    memset(s_keyboard_slots, 0, sizeof(s_keyboard_slots));
-    memset(s_consumer_slots, 0, sizeof(s_consumer_slots));
+    /* Keep logical held-key state across USB bus resets and resend it after re-enumeration. */
     s_keyboard_dirty = true;
     s_consumer_dirty = true;
 }
