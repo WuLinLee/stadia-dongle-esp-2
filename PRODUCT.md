@@ -2,7 +2,7 @@
 
 ## Product Register
 
-Stadia BLE-to-USB Xbox 360 / XInput receiver for ESP32-S3, including firmware, local USB WebHID configuration, and a browser-based full-image installer. USB WebHID is the preferred configuration channel; the Wi-Fi AP is an opt-in fallback and OTA/recovery entry point. Documentation must distinguish source implementation, CI/build success, web deployment, and real-hardware validation.
+面向 ESP32-S3 的 Stadia BLE → USB Xbox 360 / XInput 接收器，包含固件、本地 USB WebHID 配置页和浏览器完整镜像安装器。首选 USB WebHID 配置；Wi-Fi AP 是由用户主动启用的回退、OTA 与恢复入口。文档必须区分源码实现、CI/编译成功、网页部署成功和真机验收结果。
 
 ## Users
 
