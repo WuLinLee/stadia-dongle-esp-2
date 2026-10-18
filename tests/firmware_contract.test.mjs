@@ -158,6 +158,10 @@ test("Assistant/Capture outputs stay held until physical key-up", async () => {
   const ble = await source("../main/ble_central.c");
   assert.match(ble, /const stadia_controller_state_t released_state = \{0\};[\s\S]*?button_actions_on_state\(usb, &released_state\)/);
   assert.match(buttons, /The chord must stay continuously held for all five seconds/);
+  const bridge = await source("../main/bridge.c");
+  assert.match(bridge, /s_base_report_neutral\[gamepad_index\]/);
+  assert.match(bridge, /if \(!s_base_report_neutral\[gamepad_index\]\)\s*\{\s*apply_virtual_buttons/);
+  assert.doesNotMatch(bridge, /s_virtual_buttons\[gamepad_index\]\s*=\s*0;/);
 });
 
 test("Wi-Fi AP is opt-in, temporary, and still recoverable", async () => {
