@@ -200,6 +200,8 @@ CI 使用 ESP-IDF 6.0、目标 `esp32s3`，执行 `idf.py build` 并用 esptool 
 
 这次改动是基于本项目现有 Stadia BLE、TinyUSB、XInput 与 WebHID 结构完成的，不要把整个固件替换成通用手柄固件。对照过的上游 `danzig666/stadia-dongle-esp` 仍采用短按/长按配置；Joypad OS 的 `bt2usb` 是另一套通用蓝牙到 USB 输出架构，不是当前 Stadia + 震动 + WebHID 配置流程的直接替代品。
 
+网页源码权威路径是 `main/index.html` 和 `main/webhid_transport.js`，由 `main/CMakeLists.txt` 的 `EMBED_TXTFILES` 嵌入固件；`main/index_html.h` 不在当前构建输入中，是遗留文件。修改配置页时以这两个源码文件为准，除非后续构建真的重新引用遗留头文件。
+
 实现约束：
 
 - `main/index.html`、`main/webhid_transport.js` 和 `main/web_server.c` 使用 `assistant_action` / `capture_action` 两个字段；默认分别为 F14 / F12。不应再暴露短按、长按下拉框或长按时间字段。
