@@ -15,6 +15,7 @@ test("three gamma profiles are wired into the existing XInput-to-BLE rumble path
   assert.match(mapping, /input_8 == 255/);
   assert.match(mapping, /powf\(normalized, gamma\)/);
   assert.match(header, /#define STADIA_RUMBLE_PROFILE 0/);
+  assert.match(component, /"rumble_map\.c"/);
   assert.match(component, /target_compile_definitions\(\$\{COMPONENT_LIB\} PRIVATE STADIA_RUMBLE_PROFILE=\$\{STADIA_RUMBLE_PROFILE\}\)/);
   assert.match(xbox, /rumble_map_xbox360\(gp->out_buf\[3\], gp->out_buf\[4\], msg\.data\)/);
   assert.doesNotMatch(xbox, /\.data = \{gp->out_buf\[3\], gp->out_buf\[3\]/);

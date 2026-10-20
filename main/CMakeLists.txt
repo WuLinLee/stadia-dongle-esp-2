@@ -6,7 +6,7 @@ if(NOT STADIA_RUMBLE_PROFILE MATCHES "^[012]$")
 endif()
 
 idf_component_register(
-    SRCS "xbox_dev.c" "main.c" "bridge.c" "usb_xbox.c" "ble_central.c"
+    SRCS "xbox_dev.c" "rumble_map.c" "main.c" "bridge.c" "usb_xbox.c" "ble_central.c"
          "dongle_state.c" "status_led.c" "controller_manager.c"
          "config_store.c" "web_server.c" "captive_portal.c"
          "hid_extra.c" "hid_mouse.c" "usb_config_protocol.c"

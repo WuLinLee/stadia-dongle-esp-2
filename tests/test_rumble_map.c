@@ -19,10 +19,12 @@ int main(void)
         assert(current >= previous);
 #if STADIA_RUMBLE_PROFILE == 0
         assert(current == (uint16_t)(i * 257u));
-#else
-        assert(current > (uint16_t)(i * 257u));
 #endif
     }
+#if STADIA_RUMBLE_PROFILE != 0
+    assert(rumble_map_one(32) > (uint16_t)(32u * 257u));
+    assert(rumble_map_one(128) > (uint16_t)(128u * 257u));
+#endif
     rumble_map_xbox360(128, 64, packet);
     assert(from_le(&packet[0]) == rumble_map_one(128));
     assert(from_le(&packet[2]) == rumble_map_one(64));
