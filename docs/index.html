@@ -20,6 +20,15 @@
     .steps li { display:grid; grid-template-columns:34px 1fr; gap:12px; line-height:1.6; color:#d4dbea; }
     .num { width:30px; height:30px; display:grid; place-items:center; border-radius:50%; background:#263650; color:#c4dcff; font-weight:800; }
     .install { display:flex; align-items:center; justify-content:center; margin:26px 0 18px; }
+    .profile-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; margin:22px 0 12px; }
+    .profile-card { min-width:0; display:grid; align-content:start; gap:9px; padding:16px; border:1px solid var(--line); border-radius:14px; background:#111722; }
+    .profile-card h2 { margin:0; font-size:1.04rem; letter-spacing:0; }
+    .profile-card p { color:var(--muted); font-size:.86rem; line-height:1.55; margin:0; }
+    .profile-card .formula { color:var(--blue); font-size:.82rem; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+    .profile-card .install { justify-content:flex-start; margin:6px 0 0; }
+    .profile-card esp-web-install-button { width:100%; }
+    .profile-card esp-web-install-button::part(button) { width:100%; padding:10px 12px; font-size:.92rem; }
+    .profile-download { color:var(--accent); font-size:.86rem; text-decoration:underline; }
     esp-web-install-button { --esp-tools-button-color:#eaf1ff; --esp-tools-button-text-color:#101725; }
     esp-web-install-button::part(button) { background:#eaf1ff; color:#101725; border:0; border-radius:10px; padding:12px 28px; font-weight:800; font-size:1rem; cursor:pointer; }
     .links { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin:20px 0 0; }
@@ -36,7 +45,7 @@
   <main>
     <div class="eyebrow">WuLinLee · Stadia BT Dongle</div>
     <h1>ESP32-S3 固件在线刷入</h1>
-    <p class="intro">将 Google Stadia 蓝牙手柄转换为 Windows 可识别的 Xbox 360 / XInput USB 手柄。此页面由本项目仓库维护，刷入用的固件和配置页也来自本项目。</p>
+    <p class="intro">将 Google Stadia 蓝牙手柄转换为 Windows 可识别的 Xbox 360 / XInput USB 手柄。选择 Reference 线性基线、Gentle 温和增强或 Punch 较强增强曲线，三种固件均来自本项目同一套接收器源码。</p>
     <section class="panel" aria-label="刷入说明">
       <ol class="steps">
         <li><span class="num">1</span><span>使用支持数据传输的 USB 线，将 ESP32-S3 接到电脑的 <strong>COM / UART 烧录接口</strong>。不要选择开发板日常使用的原生 USB / OTG 接口。</span></li>
@@ -44,15 +53,28 @@
         <li><span class="num">3</span><span>刷入后拔掉 USB，改接开发板的 <strong>原生 USB / OTG 接口</strong>。Windows 中运行 <code>joy.cpl</code>，确认 Xbox 360 兼容手柄已出现。</span></li>
       </ol>
       <div class="alert" id="compat-warning">当前浏览器不支持 Web Serial。请在桌面版 Google Chrome 或 Microsoft Edge 中打开此页面。</div>
-      <div class="install">
-        <esp-web-install-button manifest="manifest.json"></esp-web-install-button>
+      <h2>选择震动曲线并刷入</h2>
+      <p class="muted">曲线在编译固件时确定。改用另一档需要重新刷写；原有按键映射、双手柄、BLE 震动队列与重试机制不因曲线选择而改变。</p>
+      <div class="profile-grid" aria-label="震动曲线固件选项">
+        <article class="profile-card">
+          <h2>Reference · 线性</h2><p>默认基线，保留原有强度比例。</p><div class="formula">y = x × 257</div>
+          <div class="install"><esp-web-install-button manifest="manifest-reference.json"></esp-web-install-button></div><a class="profile-download" href="firmware-reference-merged.bin" download>下载 Reference 固件</a>
+        </article>
+        <article class="profile-card">
+          <h2>Gentle · 温和增强</h2><p>gamma 0.90，轻微提升低/中强度。</p><div class="formula">y = round(65535 × (x/255)^0.90)</div>
+          <div class="install"><esp-web-install-button manifest="manifest-gentle.json"></esp-web-install-button></div><a class="profile-download" href="firmware-gentle-merged.bin" download>下载 Gentle 固件</a>
+        </article>
+        <article class="profile-card">
+          <h2>Punch · 较强增强</h2><p>gamma 0.78，低/中强度提升更明显。</p><div class="formula">y = round(65535 × (x/255)^0.78)</div>
+          <div class="install"><esp-web-install-button manifest="manifest-punch.json"></esp-web-install-button></div><a class="profile-download" href="firmware-punch-merged.bin" download>下载 Punch 固件</a>
+        </article>
       </div>
       <div class="links">
-        <a href="firmware-merged.bin" download>下载完整刷写固件 (.bin)</a>
+        <a href="firmware-merged.bin" download>下载默认线性版（兼容旧链接）</a>
         <a href="config.html">打开 USB 配置页</a>
         <a href="https://github.com/WuLinLee/stadia-dongle-esp-2/releases/latest" target="_blank" rel="noopener">最新版本 / Releases</a>
       </div>
-      <p class="warning"><strong>注意：</strong>这是完整刷写镜像，不是 OTA 应用镜像。完整刷写可能影响已保存的配对信息；若升级后手柄不能自动重连，请在 USB 配置页重新配对。刷入过程由浏览器直接与开发板通信；页面通过 ESP Web Tools 加载串口刷写组件。</p>
+      <p class="warning"><strong>注意：</strong>以上均为完整刷写镜像，不是 OTA 应用镜像。Gentle/Punch 是实验曲线，不声称为 Google 原版算法。完整刷写可能影响已保存的配对信息；若升级后手柄不能自动重连，请在 USB 配置页重新配对。刷入过程由浏览器直接与开发板通信。</p>
     </section>
     <footer>
       源码：<a href="https://github.com/WuLinLee/stadia-dongle-esp-2" target="_blank" rel="noopener">WuLinLee/stadia-dongle-esp-2</a>

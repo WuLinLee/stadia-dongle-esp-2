@@ -9,6 +9,7 @@
 #include "dongle_config.h"
 #include "hid_extra.h"
 #include "hid_mouse.h"
+#include "rumble_map.h"
 
 #include "esp_log.h"
 #include "tinyusb.h"
@@ -163,16 +164,12 @@ static bool xbox_xfer_cb(uint8_t rhport, uint8_t ep_addr,
 
     if (ep_addr == gp->ep_out) {
         if (xferred_bytes >= 5 && gp->out_buf[0] == 0x00 && gp->out_buf[1] == 0x08) {
-            /*
-             * XInput sends each motor as an 8-bit level. Stadia expects two
-             * little-endian 16-bit motor levels, so replicate each byte:
-             * n * 257 expands 0..255 to the full 0..65535 range.
-             */
+            /* Apply the selected profile without altering the existing BLE queue path. */
             usb_to_ble_msg_t msg = {
                 .gamepad_index = gp->index,
-                .data = {gp->out_buf[3], gp->out_buf[3], gp->out_buf[4], gp->out_buf[4]},
                 .len = DONGLE_RUMBLE_REPORT_SIZE,
             };
+            rumble_map_xbox360(gp->out_buf[3], gp->out_buf[4], msg.data);
             if (xQueueSendToBack(usb_to_ble_queue, &msg, 0) != pdTRUE) {
                 usb_to_ble_msg_t dummy;
                 xQueueReceive(usb_to_ble_queue, &dummy, 0);

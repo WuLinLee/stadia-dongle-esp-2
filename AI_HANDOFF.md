@@ -81,7 +81,8 @@
 | 文件 | 责任与修改时的注意事项 |
 |---|---|
 | `main/ble_central.c` | BLE 连接、手柄连接槽位、震动输出 GATT 写入与重试。震动写入失败/过载时重点从这里排查。 |
-| `main/xbox_dev.c` | USB Xbox 兼容接口及主机输出报告；解析游戏发来的马达强度。 |
+| `main/xbox_dev.c` | USB Xbox 兼容接口及主机输出报告；解析游戏马达强度并调用 `rumble_map_xbox360()`，再送入既有 BLE 队列。 |
+| `main/rumble_map.c`, `main/rumble_map.h` | Reference / Gentle / Punch 编译期映射；不改 BLE 队列、重试和多手柄隔离。 |
 | `main/main.c` | 固件任务、队列及不同 USB/BLE 子系统的协作。 |
 | `main/bridge.c` | Stadia 输入到 Xbox/XInput 报告的转换；保存基础报告并叠加映射生成的虚拟按钮。 |
 | `main/button_actions.c` | Assistant/Capture 物理按下/松开状态、映射输出与 2 秒鼠标模式组合键。 |
@@ -121,8 +122,10 @@
 
 ### 震动
 
-- Xbox 的 8 位强度使用 `n × 257` 扩展为 Stadia 所需 16 位强度（覆盖 0–65535）。
-- 当前代码采用串行 BLE 输出写入、失败退避重试，以及优先发送每个手柄最新的震动目标，以避免旧更新长期排队或停止震动的零值被挤掉。
+- 映射位于 `main/rumble_map.c/.h`，在 `main/xbox_dev.c` 解析到 Xbox 震动报告后、入 BLE 队列前调用；strong/weak 两路独立生效，之后队列和重试路径不变。
+- `STADIA_RUMBLE_PROFILE=0` 为 Reference（`x × 257`）；`1` 为 Gentle（gamma `0.90`）；`2` 为 Punch（gamma `0.78`）。均保持 0 → 0、255 → 65535。后两者是实验曲线，不要称为 Google 原版算法。
+- 在线安装页为三种固件提供独立 Install 入口；曲线是编译期选择，改档必须重新刷写。`firmware-merged.bin` 保留为 Reference 兼容别名。
+- 当前代码仍采用串行 BLE 输出写入、失败退避重试，以及优先发送每个手柄最新的震动目标，以避免旧更新长期排队或停止震动的零值被挤掉。
 - 保留每个连接手柄的独立状态；项目架构最多处理两个手柄。
 - 不要声称高负载震动问题已被彻底解决，直到真机和实际游戏回归完成。需要特别观察停止震动的零值、快速强弱变化、双手柄并发和 BLE 写入失败日志。
 
@@ -140,7 +143,7 @@
 比较对象是 [danzig666/stadia-dongle-esp 的 main](https://github.com/danzig666/stadia-dongle-esp)，不是 Scalee 上游仓库中的任意历史提交。在线刷入页面沿用相同的 ESP Web Tools + manifest 机制，manifest 把完整 `firmware-merged.bin` 以偏移 `0x0` 写入；但两个仓库的固件由各自源码构建，二进制不应视为同一文件。
 
 已确认的功能差异：
-- 本仓库改进了 BLE 震动输出路径：串行写入、失败退避重试、保护在途 payload，并优先处理最新目标；震动 8 位强度按 `n * 257` 扩展为 16 位。效果仍要真机验证。
+- 本仓库改进了 BLE 震动输出路径：串行写入、失败退避重试、保护在途 payload，并优先处理最新目标；另加编译期 Reference（默认 `n * 257`）、Gentle（gamma 0.90）和 Punch（gamma 0.78）三档幅值曲线。效果仍要真机验证。
 - 本仓库将 Assistant/Capture 改为每键单动作的按下/松开映射；NVS schema 7 迁移会清除旧长按动作。
 - 本仓库主要面向中文用户，补充 USB WebHID 协议合约测试与维护交接文档。
 - 原有双手柄、鼠标模式、Wi-Fi Web UI、USB 配置等能力不少是继承基础工程，不要把它们全都描述成本仓库新功能。
@@ -181,9 +184,9 @@ npm test
 1. 打开 [Actions](https://github.com/WuLinLee/stadia-dongle-esp-2/actions/workflows/release.yml)，确认运行对应正确分支和 head SHA。
 2. 检查 `Test USB configuration protocol` 和 `Build with ESP-IDF` 是否成功。
 3. 对 main 构建，进一步检查 `Create GitHub Release` 与 `Deploy web installer to GitHub Pages` 两个 job。
-4. `firmware` Artifact 通常保留 7 天，适合开发分支/PR。main 成功构建后应在 [Latest Release](https://github.com/WuLinLee/stadia-dongle-esp-2/releases/latest) 找到长期保存的 `firmware-merged.bin`；必须验证附件真实存在。
+4. `firmware` Artifact 通常保留 7 天，适合开发分支/PR。main 成功构建后的 Release 应含三种曲线镜像与兼容的 `firmware-merged.bin`；必须逐一验证附件名和下载地址。
 
-CI 使用 ESP-IDF 6.0、目标 `esp32s3`，执行 `idf.py build` 并用 esptool 将 bootloader、分区表和应用镜像合并。合并参数当前针对 4 MB flash：bootloader 偏移 `0x0`、partition table `0x8000`、app `0x20000`。更改分区表或应用偏移时，必须同步检查此步骤。
+CI 使用 ESP-IDF 6.0、目标 `esp32s3`，分别用 `STADIA_RUMBLE_PROFILE=0/1/2` 构建独立 build 目录，再合并每档的 bootloader、分区表与应用。4 MB Flash 的偏移是 bootloader `0x0`、partition table `0x8000`、app `0x20000`。Release 和 Pages 应包含三种命名镜像，以及 `firmware-merged.bin` 这个 Reference 兼容别名；修改分区表/应用偏移时必须同步检查。
 
 ### 真机验收（不能省略）
 

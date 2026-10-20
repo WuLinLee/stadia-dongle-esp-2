@@ -27,25 +27,51 @@ jobs:
       - name: Test USB configuration protocol
         run: npm test
 
+      - name: Test rumble Gamma mapping profiles
+        shell: bash
+        run: |
+          set -euo pipefail
+          for profile in 0 1 2; do
+            gcc -std=c11 -Wall -Wextra -Werror \
+              -D STADIA_RUMBLE_PROFILE=$profile \
+              -Imain main/rumble_map.c tests/test_rumble_map.c \
+              -lm -o "/tmp/test-rumble-$profile"
+            "/tmp/test-rumble-$profile"
+          done
+
       - name: Build with ESP-IDF
         uses: espressif/esp-idf-ci-action@v1
         with:
           esp_idf_version: v6.0
           target: esp32s3
-          command: >-
-            idf.py build &&
-            python -m esptool --chip esp32s3 merge_bin
-            --output build/firmware-merged.bin
-            --flash-mode dio --flash-size 4MB --flash-freq 80m
-            0x0     build/bootloader/bootloader.bin
-            0x8000  build/partition_table/partition-table.bin
-            0x20000 build/stadia-dongle.bin
+          command: |
+            set -euo pipefail
+            for profile in reference gentle punch; do
+              case "$profile" in
+                reference) profile_id=0 ;;
+                gentle) profile_id=1 ;;
+                punch) profile_id=2 ;;
+              esac
+              idf.py -B "build-$profile" -D "STADIA_RUMBLE_PROFILE=$profile_id" build
+              python -m esptool --chip esp32s3 merge_bin \
+                --output "build-$profile/firmware-$profile-merged.bin" \
+                --flash-mode dio --flash-size 4MB --flash-freq 80m \
+                0x0 "build-$profile/bootloader/bootloader.bin" \
+                0x8000 "build-$profile/partition_table/partition-table.bin" \
+                0x20000 "build-$profile/stadia-dongle.bin"
+            done
+            mkdir -p firmware-output
+            cp build-reference/firmware-reference-merged.bin firmware-output/firmware-reference-merged.bin
+            cp build-gentle/firmware-gentle-merged.bin firmware-output/firmware-gentle-merged.bin
+            cp build-punch/firmware-punch-merged.bin firmware-output/firmware-punch-merged.bin
+            cp build-reference/firmware-reference-merged.bin firmware-output/firmware-merged.bin
 
       - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
         with:
           name: firmware
-          path: build/firmware-merged.bin
+          path: firmware-output/*.bin
+          if-no-files-found: error
           retention-days: 7
 
   release:
@@ -59,6 +85,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: firmware
+          path: release
 
       - name: Set release tag
         id: release_tag
@@ -78,7 +105,7 @@ jobs:
           target_commitish: ${{ github.sha }}
           make_latest: true
           generate_release_notes: true
-          files: firmware-merged.bin
+          files: release/*.bin
 
   deploy-pages:
     name: Deploy web installer to GitHub Pages

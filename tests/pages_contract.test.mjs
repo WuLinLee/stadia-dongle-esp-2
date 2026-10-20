@@ -10,6 +10,9 @@ test("GitHub Pages publishes the standalone USB configuration page", async () =>
   const workflow = await source("../.github/workflows/release.yml");
   const installer = await source("../docs/index.html");
   assert.match(workflow, /run:\s+npm test/);
+  assert.match(installer, /manifest-reference\.json/);
+  assert.match(installer, /manifest-gentle\.json/);
+  assert.match(installer, /manifest-punch\.json/);
   assert.match(workflow, /cp main\/index\.html docs\/config\.html/);
   assert.match(
     workflow,

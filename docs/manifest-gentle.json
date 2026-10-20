@@ -1,0 +1,15 @@
+{
+  "name": "Stadia BT Dongle — Gentle Gamma 0.90",
+  "new_install_prompt_erase": false,
+  "builds": [
+    {
+      "chipFamily": "ESP32-S3",
+      "parts": [
+        {
+          "path": "firmware-gentle-merged.bin",
+          "offset": 0
+        }
+      ]
+    }
+  ]
+}
